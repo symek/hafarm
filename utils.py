@@ -86,8 +86,8 @@ def compute_crop(crop_parms):
 	return  left, right, lower, upper
 
 
-def join_tiles(self, job_parent_name, filename, start, end, ntiles):
-	'''Creates a command specificly for merging tiled rendering.'''
+def join_tiles(job_parent_name, filename, start, end, ntiles):
+	'''Creates a command specificly for merging tiled rendering with oiiotool.'''
 	from ha.path import padding
 
 	# Retrive full frame name (without _tile%i)
@@ -104,17 +104,17 @@ def join_tiles(self, job_parent_name, filename, start, end, ntiles):
 
 	# Reads:
 	command = ' '
-	for read in reads:
-	    command += '--Read file=%s ' % read
+	command += '%s ' % reads[0]
+	command += '%s ' % reads[1]
+	command += '--over ' 
 
-	# Mereges:
-	command += '--Merge over,0,1 ' 
-	for read in range(2, len(reads)):
-	    command += '--Merge over,%s ' % read
+	for read in reads[2:]:
+		command += "%s " % read
+		command += '--over ' 
 
 	# Final touch:
-	command += '--Write file=%s ' % details[0]
-	command += '--globals %s,%s,24 --hold %s -f' % (start, end, job_parent_name)
+	command += '-o %s ' % details[0]
+	command += '--frames %s-%s ' % (start, end)
 	return command
 
     
