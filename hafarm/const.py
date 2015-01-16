@@ -4,3 +4,4 @@
 # if required. 
 
 TASK_ID = '@TASK_ID/>'
+RAND_LEN = 6

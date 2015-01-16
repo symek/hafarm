@@ -27,7 +27,6 @@ def get_email_address_from_uid(uid=None):
 	return email.lower()
 
 
-
 def parse_frame_list(frames):
 	"""frames: 
 			string of frames in usual form: 1 2 3 4-6 7-11:2
