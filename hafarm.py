@@ -4,7 +4,6 @@ from haSGE import HaSGE
 import os, sys
 
 
-
 hafarm_defaults = {'start_frame': 1,
                    'end_frame'  : 48,
                    'step_frame' : 1,
@@ -44,10 +43,6 @@ hafarm_defaults = {'start_frame': 1,
                    'frame_list'    :'',    # It is sometimes useful to render specific frames, not ranges of it. Supported format: 1,2,3,4-10,11-20x2
                    'max_running_tasks':1000 # Max number of tasks in a job run at the same time (1000 considered to be non limit.)
                                         }
-
-
-
-
 
 
 class HaFarmParms(dict):

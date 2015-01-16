@@ -2,6 +2,7 @@
 # import drmaa
 import os
 import utils
+import const
 
 
 class HaSGE(object):
@@ -15,6 +16,9 @@ class HaSGE(object):
         script_path = os.path.join(path, self.parms['job_name'] + '.job')
         time_parm   = (int(self.parms['start_frame']), int(self.parms['end_frame']), int(self.parms['step_frame']))
         file = open(script_path, 'w')
+
+        # FIXME: Change hafarm specific variables for SGE once. Currently we do it manually. 
+        self.parms['scene_file'] = self.parms['scene_file'].replace(const.TASK_ID, '$SGE_TASK_ID')
 
         # This is standard:
         file.write('#!/bin/bash\n')
