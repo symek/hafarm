@@ -38,7 +38,7 @@ hafarm_defaults = {'start_frame': 1,
                    'req_resources' : "",  # Request additional resources.
                    'req_license'   : "",  # Request the license in format: license=number (mayalic=1)
                    'output_picture': "",  # This file is referential for rendering output (for debugging etc)
-                   'frame_range_arg':[],  # It should be ["-flag %s -flag %s", parm_key, parm_key], to produce:
+                   'frame_range_arg':["%s%s%s", '', '', ''],  # It should be ["-flag %s -flag %s", parm_key, parm_key], to produce:
                                           # '-s %s -e' % (self.parms['start_frame'], self.parms['end_frame']) for example (Maya)
                    'frame_list'    :'',    # It is sometimes useful to render specific frames, not ranges of it. Supported format: 1,2,3,4-10,11-20x2
                    'max_running_tasks':1000 # Max number of tasks in a job run at the same time (1000 considered to be non limit.)
