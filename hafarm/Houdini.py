@@ -10,7 +10,7 @@ import hafarm
 import ha
 from ha.hafarm import utils
 from ha.hafarm import const
-#from ha.hafarm.icomp import ICompFarm
+#from ha.hafarm import Batch
 from ha.path import padding, find_sequence
 
 reload(utils)
@@ -244,6 +244,22 @@ class MantraFarm(hafarm.HaFarm):
 
 
 
+# For some reason this can't be in its own module for now.
+class BatchFarm(hafarm.HaFarm):
+    '''Performs arbitrary script on farm.'''
+    def __init__(self, job_name=None, parent_job_name=[], command='', command_arg=''):
+        super(BatchFarm, self).__init__()
+        self.parms['command']        = command
+        self.parms['command_arg']    = command_arg
+        self.parms['hold_jid']       = parent_job_name
+        self.parms['ignore_check']   = True
+        self.parms['slots']          = 1
+        self.parms['req_resources'] = ''
+
+
+
+
+
 def mantra_render_frame_list(node, rop, hscript_farm, frames):
     """Renders individual frames by sending separately to manager
     This basically means HaFarm doesn't support any batching of random set of frames
@@ -275,18 +291,27 @@ def render_with_tiles(node, rop, hscript_farm):
         job_ids.append(mantra_farm.parms['job_name'])
         mantra_tiles.append(mantra_farm)
 
-    # Tile merging job:
-    print "Disabled tilinig merging atm."
-    # icomp_farm = ICompFarm(parent_job_name=",".join(job_ids))
-    # icomp_farm.join_tiles(mantra_farm.parms['job_name'], \
-    #                       mantra_farm.parms['output_picture'], \
-    #                       mantra_farm.parms['start_frame'],\
-    #                       mantra_farm.parms['end_frame'],\
-    #                       tiles_x*tiles_y)
-    # print icomp_farm.render()
 
-    # Restore original setting of tiling:
-    # rop.parm("vm_tile_render").set(True)
+
+    # Tile merging job:
+    command_arg = utils.join_tiles(hscript_farm.parms['job_name'],  \
+                                    mantra_farm.parms['output_picture'], \
+                                    mantra_farm.parms['start_frame'], \
+                                    mantra_farm.parms['start_frame'], \
+                                    tiles_x*tiles_y)
+
+    # FIXME: hardcoded path
+    batch_farm = BatchFarm(command = '/opt/packages/oiio-1.4.15/bin/oiiotool ')
+    batch_farm.parms['queue']         = str(node.parm('queue').eval())
+    batch_farm.parms['hold_jid']    = job_ids
+    batch_farm.parms['command_arg'] = command_arg
+    batch_farm.parms['start_frame'] = mantra_farm.parms['start_frame']
+    batch_farm.parms['end_frame']   = mantra_farm.parms['start_frame']
+    batch_farm.parms['step_frame']  = 1
+    batch_farm.parms['job_name']    = hscript_farm.parms['job_name'] + '_merge'
+    batch_farm.parms['output_picture'] = mantra_farm.parms['output_picture']
+
+    print batch_farm.render()
     return mantra_tiles
 
 
