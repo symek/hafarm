@@ -290,8 +290,9 @@ def render_with_tiles(node, rop, hscript_farm):
 
 
 
-def render_from_ifd(ifds, start, end, node, job_name=None):
+def mantra_render_from_ifd(ifds, start, end, node, job_name=None):
     """Separated path for renderig directly from provided ifd files."""
+    import glob
     seq_details = padding(ifds)
     #job name = ifd file name + current ROP name.
     if not job_name:
@@ -300,13 +301,19 @@ def render_from_ifd(ifds, start, end, node, job_name=None):
     mantra_farm = MantraFarm(node, None, job_name)
     mantra_farm.parms['start_frame'] = node.parm("ifd_range1").eval() #TODO make automatic range detection
     mantra_farm.parms['end_frame']   = node.parm("ifd_range2").eval() #TODO as above
+    mantra_farm.parms['step_frame']  = node.parm("ifd_range3").eval()
     mantra_farm.parms['scene_file']  = seq_details[0] + '${SGE_TASK_ID}' + '.ifd'
 
-    # Detect output image. Uses grep ray_image on first ifd file:
-    # TODO: This is potential source of errors without proper checking that file exists
-    path, filename = os.path.split(ifds)
-    single_ifd = find_sequence(path, filename)[0]
-    mantra_farm.parms['output_picture'] = utils.get_ray_image_from_ifd(single_ifd)
+    # Find real file sequence on disk. Param could have $F4...
+    real_ifds = glob.glob(seq_details[0] + "*" + seq_details[-1])
+
+    # No ifds found:
+    if not real_ifds: 
+        print "Can't find ifds files: %s" % ifds
+        return
+
+    # Detect output image. Uses grep ray_image on ifd file:
+    mantra_farm.parms['output_picture'] = utils.get_ray_image_from_ifd(real_ifds[0])
     print "Rendering with existing ifd files: %s" % ifds
     show_details("Mantra", mantra_farm.parms, mantra_farm.render()) 
 
@@ -321,7 +328,7 @@ def show_details(title, parms, result):
     if result and isinstance(result, type([])):
         print " ==== Retured values: ==== "
         for x in range(0, len(result),2):
-            print "\t" + result[x], 
+            print "\t" + result[x],
             print ": ",
             print str(result[x+1])
 
@@ -339,7 +346,7 @@ def render_pressed(node):
         ifds  = node.parm("ifd_files").eval()
         start = node.parm("ifd_range1").eval() #TODO make automatic range detection
         end   = node.parm("ifd_range2").eval() #TODO as above
-        render_from_ifd(ifds, start, end, node)
+        mantra_render_from_ifd(ifds, start, end, node)
         return
 
     # b) Iterate over inputs 
@@ -368,6 +375,5 @@ def render_pressed(node):
         else:
             frames = node.parm("frame_list").eval()
             frames = utils.parse_frame_list(frames)
-            print frames
             mantra_frames = mantra_render_frame_list(node, rop, hscript_farm, frames)
             
