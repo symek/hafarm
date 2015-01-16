@@ -108,11 +108,12 @@ class HaFarm(HaSGE):
         self.parms = HaFarmParms(initilize=True)
 
 
-    def genarate_unique_job_name(self, name):
+    def generate_unique_job_name(self, name):
         """Returns unique name for a job. 'Name' is usually a scene file. 
         """
+        from base64 import urlsafe_b64encode
         name = os.path.basename(name)
-        return "_".join([os.path.split(name)[1], ha.utils.getJobId()])
+        return "_".join([os.path.split(name)[1], urlsafe_b64encode(os.urandom(3))])
         
 
     def copy_scene_file(self, scene_file=None):

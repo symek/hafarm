@@ -15,7 +15,7 @@ class MayaFarm(hafarm.HaFarm):
         self.parms['command']     = '$MAYA_LOCATION/bin/Render'
         self.parms['command_arg'] = '-mr:v 4 '
         self.parms['scene_file']  = str(maya.cmds.file(save=True))
-        self.parms['job_name']    = self.genarate_unique_job_name(self.parms['scene_file'])
+        self.parms['job_name']    = self.generate_unique_job_name(self.parms['scene_file'])
         self.parms['output_picture'] = ""
         self.parms['req_license']    = 'mayalic=1' 
         self.parms['req_resources']  = ''

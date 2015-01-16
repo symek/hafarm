@@ -43,7 +43,7 @@ class HbatchFarm(hafarm.HaFarm):
 
         # 
         self.parms['scene_file']  = str(hou.hipFile.name())
-        self.parms['job_name']    = self.genarate_unique_job_name(self.parms['scene_file'])
+        self.parms['job_name']    = self.generate_unique_job_name(self.parms['scene_file'])
 
         # Requests resurces and licenses (TODO shouldn't we aquire slot here?)
         self.parms['req_license']   = 'hbatchlic=1' 

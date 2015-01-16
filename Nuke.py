@@ -24,7 +24,7 @@ class NukeFarm(hafarm.HaFarm):
         self.parms['command']     = 'Nuke%s' % version
         self.parms['command_arg'] = '-x -V '
         self.parms['scene_file']  = str(nuke.root().name())
-        self.parms['job_name']    = self.genarate_unique_job_name(self.parms['scene_file'])
+        self.parms['job_name']    = self.generate_unique_job_name(self.parms['scene_file'])
         self.parms['req_license']    = 'nuke_lic=1' 
         self.parms['req_resources']  = ''
         self.parms['frame_range_arg'] = ["-F %s-%sx1", 'start_frame', 'end_frame']
