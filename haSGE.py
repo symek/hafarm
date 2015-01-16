@@ -1,20 +1,8 @@
-import drmaa
+# No dramaa atm
+# import drmaa
 import os
 import utils
 
-    # Who needs a case statement when you have dictionaries?
-SGEstatus = {
-    drmaa.JobState.UNDETERMINED: 'process status cannot be determined',
-    drmaa.JobState.QUEUED_ACTIVE: 'job is queued and active',
-    drmaa.JobState.SYSTEM_ON_HOLD: 'job is queued and in system hold',
-    drmaa.JobState.USER_ON_HOLD: 'job is queued and in user hold',
-    drmaa.JobState.USER_SYSTEM_ON_HOLD: 'job is queued and in user and system hold',
-    drmaa.JobState.RUNNING: 'job is running',
-    drmaa.JobState.SYSTEM_SUSPENDED: 'job is system suspended',
-    drmaa.JobState.USER_SUSPENDED: 'job is user suspended',
-    drmaa.JobState.DONE: 'job finished normally',
-    drmaa.JobState.FAILED: 'job finished, but failed',
-    }
 
 class HaSGE(object):
     def __init__(self):
@@ -44,6 +32,7 @@ class HaSGE(object):
         file.write("echo Render start: `date`\n")
         file.write("echo Machine name: ${HOSTNAME}\n")
         file.write("echo User    name: ${USER}\n")
+        file.write("echo Slots:        $NSLOTS\n")
         file.write("echo Memory stats: `egrep 'Mem|Cache|Swap' /proc/meminfo`\n")
         file.write("echo Scene file  : %s\n" % self.parms['scene_file'])
         #file.write("echo CPU    stats: `mpstat`\n")
@@ -210,6 +199,21 @@ class HaSGE(object):
         return ('allhosts', 'grafiki', 'renders')
 
 
+
+
+    # Who needs a case statement when you have dictionaries?
+# SGEstatus = {
+#     drmaa.JobState.UNDETERMINED: 'process status cannot be determined',
+#     drmaa.JobState.QUEUED_ACTIVE: 'job is queued and active',
+#     drmaa.JobState.SYSTEM_ON_HOLD: 'job is queued and in system hold',
+#     drmaa.JobState.USER_ON_HOLD: 'job is queued and in user hold',
+#     drmaa.JobState.USER_SYSTEM_ON_HOLD: 'job is queued and in user and system hold',
+#     drmaa.JobState.RUNNING: 'job is running',
+#     drmaa.JobState.SYSTEM_SUSPENDED: 'job is system suspended',
+#     drmaa.JobState.USER_SUSPENDED: 'job is user suspended',
+#     drmaa.JobState.DONE: 'job finished normally',
+#     drmaa.JobState.FAILED: 'job finished, but failed',
+#     }
 
 
 
