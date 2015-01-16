@@ -243,8 +243,8 @@ class MantraFarm(hafarm.HaFarm):
 
 
 
-def render_frame_list(node, rop, hscript_farm, frames):
-    """Make a list of individual frames and send separately to manager
+def mantra_render_frame_list(node, rop, hscript_farm, frames):
+    """Renders individual frames by sending separately to manager
     This basically means HaFarm doesn't support any batching of random set of frames
     so we manage them individually. Unlike hscript exporter (HBachFarm), which does recognize
     frame_list parameter and via harender script supporting random frames."""
@@ -369,5 +369,5 @@ def render_pressed(node):
             frames = node.parm("frame_list").eval()
             frames = utils.parse_frame_list(frames)
             print frames
-            #mantra_frames = render_frame_list(node, rop, hscript_farm, frames)
+            mantra_frames = mantra_render_frame_list(node, rop, hscript_farm, frames)
             
