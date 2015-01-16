@@ -9,6 +9,7 @@ import hou
 import hafarm
 import ha
 from ha.hafarm import utils
+from ha.hafarm import const
 #from ha.hafarm.icomp import ICompFarm
 from ha.path import padding, find_sequence
 
@@ -194,7 +195,7 @@ class MantraFarm(hafarm.HaFarm):
         # Bellow needs any node to be connected, which isn't nececery for rendering directly
         # from ifd files:
         if rop:
-            self.parms['scene_file']     = os.path.join(self.node.parm("ifd_path").eval(), job_name + '.${SGE_TASK_ID}' + '.ifd')
+            self.parms['scene_file']     = os.path.join(self.node.parm("ifd_path").eval(), job_name + '.' + const.TASK_ID + '.ifd')
             self.parms['command']        = '$HFS/bin/' +  str(self.rop.parm('soho_pipecmd').eval()) 
             self.parms['start_frame']    = int(self.rop.parm('f1').eval())
             self.parms['end_frame']      = int(self.rop.parm('f2').eval())
@@ -302,7 +303,7 @@ def mantra_render_from_ifd(ifds, start, end, node, job_name=None):
     mantra_farm.parms['start_frame'] = node.parm("ifd_range1").eval() #TODO make automatic range detection
     mantra_farm.parms['end_frame']   = node.parm("ifd_range2").eval() #TODO as above
     mantra_farm.parms['step_frame']  = node.parm("ifd_range3").eval()
-    mantra_farm.parms['scene_file']  = seq_details[0] + '${SGE_TASK_ID}' + '.ifd'
+    mantra_farm.parms['scene_file']  = seq_details[0] + const.TASK_ID + '.ifd'
 
     # Find real file sequence on disk. Param could have $F4...
     real_ifds = glob.glob(seq_details[0] + "*" + seq_details[-1])
