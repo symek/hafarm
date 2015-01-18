@@ -44,6 +44,10 @@ class HbatchFarm(hafarm.HaFarm):
         # 
         self.parms['scene_file']  = str(hou.hipFile.name())
         self.parms['job_name']    = self.generate_unique_job_name(self.parms['scene_file'])
+        # Job name should be driver dependant:
+        if rop: 
+            self.parms['job_name']    += "_"
+            self.parms['job_name']    += rop.name()
 
         # Requests resurces and licenses (TODO shouldn't we aquire slot here?)
         self.parms['req_license']   = 'hbatchlic=1' 
@@ -344,7 +348,7 @@ def mantra_render_from_ifd(ifds, start, end, node, job_name=None):
     show_details("Mantra", mantra_farm.parms, mantra_farm.render()) 
 
 
-def show_details(title, parms, result):
+def show_details(title, parms, result,):
     print "\n\t %s execution... " % str(title)
     if parms and isinstance(parms, type({})):
         print " ==== Parameters: ==== "
