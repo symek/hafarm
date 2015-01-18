@@ -348,7 +348,15 @@ def mantra_render_from_ifd(ifds, start, end, node, job_name=None):
     show_details("Mantra", mantra_farm.parms, mantra_farm.render()) 
 
 
-def show_details(title, parms, result,):
+def show_details(title, parms, result, verbose=False):
+    '''This is temporary debugging facility. '''
+    
+    if not verbose:
+        if not os.getenv("HAFARM_DEBUG", False):
+            return
+
+
+    # TODO: replace with proper logging.
     print "\n\t %s execution... " % str(title)
     if parms and isinstance(parms, type({})):
         print " ==== Parameters: ==== "
