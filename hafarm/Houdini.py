@@ -296,21 +296,24 @@ def render_with_tiles(node, rop, hscript_farm):
         mantra_tiles.append(mantra_farm)
 
 
-
+    # DISABLING FOR NOW:
+    return mantra_tiles
+    
     # Tile merging job:
     command_arg = utils.join_tiles(hscript_farm.parms['job_name'],  \
                                     mantra_farm.parms['output_picture'], \
                                     mantra_farm.parms['start_frame'], \
-                                    mantra_farm.parms['start_frame'], \
+                                    mantra_farm.parms['end_frame'], \
                                     tiles_x*tiles_y)
 
     # FIXME: hardcoded path
-    batch_farm = BatchFarm(command = '/opt/packages/oiio-1.4.15/bin/oiiotool ')
-    batch_farm.parms['queue']         = str(node.parm('queue').eval())
+    command = 'LD_PRELOAD=/opt/packages/oiio-1.4.15/lib/libOpenImageIO.so.1.4 /opt/packages/oiio-1.4.15/bin/oiiotool '
+    batch_farm                      = BatchFarm(command = command)
+    batch_farm.parms['queue']       = str(node.parm('queue').eval())
     batch_farm.parms['hold_jid']    = job_ids
     batch_farm.parms['command_arg'] = command_arg
     batch_farm.parms['start_frame'] = mantra_farm.parms['start_frame']
-    batch_farm.parms['end_frame']   = mantra_farm.parms['start_frame']
+    batch_farm.parms['end_frame']   = mantra_farm.parms['end_frame']
     batch_farm.parms['step_frame']  = 1
     batch_farm.parms['job_name']    = hscript_farm.parms['job_name'] + '_merge'
     batch_farm.parms['output_picture'] = mantra_farm.parms['output_picture']
@@ -322,7 +325,7 @@ def render_with_tiles(node, rop, hscript_farm):
 
 def mantra_render_from_ifd(ifds, start, end, node, job_name=None):
     """Separated path for renderig directly from provided ifd files."""
-    import glob
+    import glob0
     seq_details = padding(ifds)
     #job name = ifd file name + current ROP name.
     if not job_name:
@@ -373,8 +376,6 @@ def show_details(title, parms, result, verbose=False):
 
 def render_pressed(node):
     '''Direct callback from Render button on Hafarm ROP.'''
-    # Flag storing original setting from a ROP, which will be disabled down the stream.
-    tile_render = False
 
     # FIXME: This shouldn't be here?
     hou.hipFile.save()
