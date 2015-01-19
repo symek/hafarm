@@ -2,6 +2,7 @@ import haSGE, ha
 reload(haSGE)
 from haSGE import HaSGE
 import os, sys
+import const
 
 
 hafarm_defaults = {'start_frame': 1,
@@ -130,7 +131,6 @@ class HaFarm(HaSGE):
         copy(scene_file, new_scene_file)
         return ['copy_scene_file', new_scene_file]
 
-
     def render(self):
         """Make defaults steps, scene copy and call parent specific command.
         """
@@ -159,4 +159,53 @@ class HaFarm(HaSGE):
 
 
 
+# For some reason this can't be in its own module for now and we'd like to
+# use it across the board, so I put it here. At some point, we should remove haSGE inheritance
+# making it more like a plugin class. At that point, this problem should be reviewed.
+class BatchFarm(HaFarm):
+    '''Performs arbitrary script on farm. Also encapsulates utility functions for handling usual tasks.
+    like tile merging, dubuging renders etc.'''
+    def __init__(self, job_name=None, parent_job_name=[], queue=None, command='', command_arg=''):
+        super(BatchFarm, self).__init__()
+        self.parms['queue']          = queue
+        self.parms['job_name']       = job_name
+        self.parms['command']        = command
+        self.parms['command_arg']    = command_arg
+        self.parms['hold_jid']       = parent_job_name
+        self.parms['ignore_check']   = True
+        self.parms['slots']          = 1
+        self.parms['req_resources'] = ''
 
+    def join_tiles(self, filename, start, end, ntiles):
+        '''Creates a command specificly for merging tiled rendering with oiiotool.'''
+        from ha.path import padding
+
+        # Retrive full frame name (without _tile%i)
+        if const.TILE_ID in filename:
+            base, rest = filename.split(const.TILE_ID)
+            tmp, ext   = os.path.splitext(filename)
+            filename   = base + ext
+        else:
+            base, ext  = os.path.splitext(filename)
+
+        details = padding(filename, format='nuke')
+        base    = os.path.splitext(details[0])[0]
+        reads   = [base + const.TILE_ID + '%s' % str(tile) + ext for tile in range(ntiles)]
+
+        # Reads:
+        command = ' '
+        command += '%s ' % reads[0]
+        command += '%s ' % reads[1]
+        command += '--over ' 
+
+        for read in reads[2:]:
+          command += "%s " % read
+          command += '--over ' 
+
+        # Final touch:
+        command += '-o %s ' % details[0]
+        command += '--frames %s-%s ' % (start, end)
+
+        self.parms['command_arg'] = command
+        self.parms['command']     = const.OIIOTOOL
+        return command

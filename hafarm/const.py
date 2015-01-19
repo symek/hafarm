@@ -6,3 +6,4 @@
 TASK_ID = '@TASK_ID/>'
 RAND_LEN = 6
 TILE_ID  = '__TILE__'
+OIIOTOOL = 'LD_PRELOAD=/opt/packages/oiio-1.4.15/lib/libOpenImageIO.so.1.4 /opt/packages/oiio-1.4.15/bin/oiiotool '

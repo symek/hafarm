@@ -248,23 +248,6 @@ class MantraFarm(hafarm.HaFarm):
         return ['pre_schedule', 'render with arguments:' + command]
 
 
-
-# For some reason this can't be in its own module for now.
-class BatchFarm(hafarm.HaFarm):
-    '''Performs arbitrary script on farm.'''
-    def __init__(self, job_name=None, parent_job_name=[], command='', command_arg=''):
-        super(BatchFarm, self).__init__()
-        self.parms['command']        = command
-        self.parms['command_arg']    = command_arg
-        self.parms['hold_jid']       = parent_job_name
-        self.parms['ignore_check']   = True
-        self.parms['slots']          = 1
-        self.parms['req_resources'] = ''
-
-
-
-
-
 def mantra_render_frame_list(node, rop, hscript_farm, frames):
     """Renders individual frames by sending separately to manager
     This basically means HaFarm doesn't support any batching of random set of frames
@@ -283,8 +266,11 @@ def mantra_render_frame_list(node, rop, hscript_farm, frames):
     return mantra_frames
 
 
-def render_with_tiles(node, rop, hscript_farm):
-    job_ids = []
+def mantra_render_with_tiles(node, rop, hscript_farm):
+    '''Creates a series of Mantra jobs using the same ifds stream with different crop setting 
+    and overwritten filename. Secondly generates merge job with general BatchFarm class for 
+    joining tiles.'''
+    tile_job_ids = []
     mantra_tiles = []
     tiles_x = rop.parm('vm_tile_count_x').eval()
     tiles_y = rop.parm('vm_tile_count_y').eval()
@@ -293,37 +279,28 @@ def render_with_tiles(node, rop, hscript_farm):
         mantra_farm = MantraFarm(node, rop, job_name = None, parent_job_name = hscript_farm.parms['job_name'], \
                                                             crop_parms = (tiles_x,tiles_y,tile))
         show_details("Mantra", mantra_farm.parms, mantra_farm.render()) 
-        job_ids.append(mantra_farm.parms['job_name'])
+        tile_job_ids.append(mantra_farm.parms['job_name'])
         mantra_tiles.append(mantra_farm)
-
 
     
     # Tile merging job:
-    command_arg = utils.join_tiles(hscript_farm.parms['job_name'],  \
-                                    mantra_farm.parms['output_picture'], \
-                                    mantra_farm.parms['start_frame'], \
-                                    mantra_farm.parms['end_frame'], \
-                                    tiles_x*tiles_y)
-
-    # print command_arg
-    # print mantra_farm.parms['output_picture']
-    # DISABLING FOR NOW:
-    # return mantra_tiles
-
-    # FIXME: hardcoded path
-    command = 'LD_PRELOAD=/opt/packages/oiio-1.4.15/lib/libOpenImageIO.so.1.4 /opt/packages/oiio-1.4.15/bin/oiiotool '
-    batch_farm                      = BatchFarm(command = command)
-    batch_farm.parms['queue']       = str(node.parm('queue').eval())
-    batch_farm.parms['hold_jid']    = job_ids
-    batch_farm.parms['command_arg'] = command_arg
+    merging_job_name = hscript_farm.parms['job_name'] + '_merge'
+    batch_farm = hafarm.BatchFarm(job_name = merging_job_name, 
+                                  parent_job_name = tile_job_ids, 
+                                  queue = str(node.parm('queue').eval()))
+    # Queue control
     batch_farm.parms['start_frame'] = mantra_farm.parms['start_frame']
-    batch_farm.parms['end_frame']   = mantra_farm.parms['start_frame']
-    batch_farm.parms['step_frame']  = 1
-    batch_farm.parms['job_name']    = hscript_farm.parms['job_name'] + '_merge'
-    batch_farm.parms['output_picture'] = mantra_farm.parms['output_picture']
+    batch_farm.parms['end_frame']   = mantra_farm.parms['start_frame'] # This is single job script (oiiotool does looping well): 
+    batch_farm.parms['output_picture'] = mantra_farm.parms['output_picture'] # This is for house keeping only
 
-    return mantra_tiles + batch_farm
+    # This prepares commandline to execute:
+    batch_farm.join_tiles(mantra_farm.parms['output_picture'],
+                          mantra_farm.parms['start_frame'],
+                          mantra_farm.parms['end_frame'],
+                          tiles_x*tiles_y)
 
+    batch_farm.render()
+    return mantra_tiles.append(batch_farm)
 
 
 def mantra_render_from_ifd(ifds, start, end, node, job_name=None):
@@ -406,7 +383,7 @@ def render_pressed(node):
             # TODO: Move tiling inside MantraFarm class...
             # Custom tiling:
             if rop.parm('vm_tile_render').eval():
-                mantra_tiles = render_with_tiles(node, rop, hscript_farm)
+                mantra_tiles = mantra_render_with_tiles(node, rop, hscript_farm)
             else:
                 # Proceed normally (no tiling required):
                 mantra_farm = MantraFarm(node, rop, job_name = None, parent_job_name = hscript_farm.parms['job_name'],)
