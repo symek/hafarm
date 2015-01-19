@@ -15,6 +15,7 @@ from ha.path import padding, find_sequence
 
 reload(utils)
 reload(hafarm)
+reload(const)
 
 class HbatchFarm(hafarm.HaFarm):
     def __init__(self, node, rop):
@@ -161,7 +162,7 @@ class MantraFarm(hafarm.HaFarm):
 
         # Tiling support:
         if crop_parms != (1,1,0):
-            self.parms['job_name']  += "_tile%s" % str(crop_parms[2])
+            self.parms['job_name']  += "%s%s" % (const.TILE_ID , str(crop_parms[2]))
 
         self.parms['req_license']    = '' 
         self.parms['req_resources']  = ''
@@ -296,8 +297,6 @@ def render_with_tiles(node, rop, hscript_farm):
         mantra_tiles.append(mantra_farm)
 
 
-    # DISABLING FOR NOW:
-    return mantra_tiles
     
     # Tile merging job:
     command_arg = utils.join_tiles(hscript_farm.parms['job_name'],  \
@@ -305,6 +304,11 @@ def render_with_tiles(node, rop, hscript_farm):
                                     mantra_farm.parms['start_frame'], \
                                     mantra_farm.parms['end_frame'], \
                                     tiles_x*tiles_y)
+
+    # print command_arg
+    # print mantra_farm.parms['output_picture']
+    # DISABLING FOR NOW:
+    # return mantra_tiles
 
     # FIXME: hardcoded path
     command = 'LD_PRELOAD=/opt/packages/oiio-1.4.15/lib/libOpenImageIO.so.1.4 /opt/packages/oiio-1.4.15/bin/oiiotool '
