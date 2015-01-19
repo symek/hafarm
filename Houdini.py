@@ -388,6 +388,12 @@ def render_pressed(node):
                 # Proceed normally (no tiling required):
                 mantra_farm = MantraFarm(node, rop, job_name = None, parent_job_name = hscript_farm.parms['job_name'],)
                 show_details("Mantra", mantra_farm.parms, mantra_farm.render()) 
+                # Proceed with debuging:
+                debug_render  = hafarm.BatchFarm(job_name = hscript_farm.parms['job_name'] + "_debug", 
+                                                 queue    = str(node.parm('queue').eval()),
+                                                 parent_job_name = [mantra_farm.parms['job_name']])
+                debug_render.inspect_images(mantra_farm.parms['output_picture'])
+                debug_render.render()
 
         # Render randomly selected frames provided by the user in HaFarm parameter:
         # TODO: Doesn't suppport tiling atm.
