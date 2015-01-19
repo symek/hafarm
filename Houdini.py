@@ -322,8 +322,7 @@ def render_with_tiles(node, rop, hscript_farm):
     batch_farm.parms['job_name']    = hscript_farm.parms['job_name'] + '_merge'
     batch_farm.parms['output_picture'] = mantra_farm.parms['output_picture']
 
-    print batch_farm.render()
-    return mantra_tiles
+    return mantra_tiles + batch_farm
 
 
 
