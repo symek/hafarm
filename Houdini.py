@@ -317,7 +317,7 @@ def render_with_tiles(node, rop, hscript_farm):
     batch_farm.parms['hold_jid']    = job_ids
     batch_farm.parms['command_arg'] = command_arg
     batch_farm.parms['start_frame'] = mantra_farm.parms['start_frame']
-    batch_farm.parms['end_frame']   = mantra_farm.parms['end_frame']
+    batch_farm.parms['end_frame']   = mantra_farm.parms['start_frame']
     batch_farm.parms['step_frame']  = 1
     batch_farm.parms['job_name']    = hscript_farm.parms['job_name'] + '_merge'
     batch_farm.parms['output_picture'] = mantra_farm.parms['output_picture']
