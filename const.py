@@ -5,3 +5,4 @@
 
 TASK_ID = '@TASK_ID/>'
 RAND_LEN = 6
+TILE_ID  = '__TILE__'

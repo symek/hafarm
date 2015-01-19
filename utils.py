@@ -1,6 +1,7 @@
 import os
 import pwd
 import sys
+from ha.hafarm import const
 
 
 def get_email_address(user=None):
@@ -91,8 +92,8 @@ def join_tiles(job_parent_name, filename, start, end, ntiles):
 	from ha.path import padding
 
 	# Retrive full frame name (without _tile%i)
-	if "_tile" in filename:
-	    base, rest = filename.split("_tile")
+	if const.TILE_ID in filename:
+	    base, rest = filename.split(const.TILE_ID)
 	    tmp, ext   = os.path.splitext(filename)
 	    filename   = base + ext
 	else:
@@ -100,7 +101,7 @@ def join_tiles(job_parent_name, filename, start, end, ntiles):
 
 	details = padding(filename, format='nuke')
 	base    = os.path.splitext(details[0])[0]
-	reads   = [base + '_tile%s' % str(tile) + ext for tile in range(ntiles)]
+	reads   = [base + const.TILE_ID + '%s' % str(tile) + ext for tile in range(ntiles)]
 
 	# Reads:
 	command = ' '
