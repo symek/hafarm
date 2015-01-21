@@ -195,6 +195,8 @@ class BatchFarm(HaFarm):
 
         details = padding(filename, format='nuke')
         base    = os.path.splitext(details[0])[0]
+        base, file = os.path.split(base)
+        base    = os.path.join(base, const.TILES_POSTFIX, file)
         reads   = [base + const.TILE_ID + '%s' % str(tile) + ext for tile in range(ntiles)]
 
 
