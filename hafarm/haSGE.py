@@ -74,10 +74,10 @@ class HaSGE(object):
         if self.parms['email_stdout']:
             if not self.parms['email_list']:
                 self.parms['email_list'] = [utils.get_email_address()]
-            stdout = 'STDOUT=$(cd `dirname "${BASH_SOURCE[0]}"` && pwd)/`basename "${BASH_SOURCE[0]}"`; cat $STDOUT '
+            # stdout = 'STDOUT=$(cd `dirname "${BASH_SOURCE[0]}"` && pwd)/`basename "${BASH_SOURCE[0]}"`; cat $STDOUT '
             topic = 'DEBUGING FOR: ' + self.parms['job_name']
             file.write("echo ${0}\n")
-            send_mail = 'echo `cat $SGE_STDOUT_PATH | mail -d -s "%s" "%s"\n`' % (topic, self.parms['email_list'][0])
+            send_mail = 'echo `echo TEST TEST | mail -d -s "%s" "%s"` \n' % (topic, self.parms['email_list'][0])
             file.write(send_mail)
         file.close()
 

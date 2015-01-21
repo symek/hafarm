@@ -3,6 +3,7 @@ reload(haSGE)
 from haSGE import HaSGE
 import os, sys
 import const
+import utils
 
 
 hafarm_defaults = {'start_frame': 1,
@@ -21,10 +22,13 @@ hafarm_defaults = {'start_frame': 1,
                    'command_arg': "",   # Rendering command arguments.
                    'email_list' : [],   # A list of emails for notification
                    'email_opt'  : '',   # Options for emails (job's states triggering notification)
+                   'make_proxy' : False,# Optionally makes a proxy for output image. 
                    # Render farm settigs bellow:
                    'job_name'   : "",   # Render job name.
                    'log_path'   : "$JOB/render/sungrid/log", # Env. variables will be expanded by render manager. 
-                   'script_path': "$JOB/render/sungrid/jobScript", # Rendermanager will execute that script. 
+                   'script_path': "$JOB/render/sungrid/jobScript", # Rendermanager will execute that script.
+                   'email_stdout': False, # Homebrew support for mailing.
+                   'email_stderr': False, # Same as above.
                    'scene_file' : "",   # The scene file used for rendering. It always should be a copy of source scene file. 
                    'user'       : "",   # Login user.
                    'include_list':[],   # Explicite list of computers to be used for job's execution. 
@@ -188,9 +192,11 @@ class BatchFarm(HaFarm):
         else:
             base, ext  = os.path.splitext(filename)
 
+
         details = padding(filename, format='nuke')
         base    = os.path.splitext(details[0])[0]
         reads   = [base + const.TILE_ID + '%s' % str(tile) + ext for tile in range(ntiles)]
+
 
         # Reads:
         command = ' '
@@ -199,12 +205,23 @@ class BatchFarm(HaFarm):
         command += '--over ' 
 
         for read in reads[2:]:
-          command += "%s " % read
-          command += '--over ' 
+            command += "%s " % read
+            command += '--over ' 
 
         # Final touch:
         command += '-o %s ' % details[0]
         command += '--frames %s-%s ' % (start, end)
+
+        # Additional path for proxy images (to be created from joined tiles)
+        if self.parms['make_proxy']:
+            path, file = os.path.split(details[0])
+            path = os.path.join(path, const.PROXY_POSTFIX)
+
+            # FIXME: It shouldn't be here at all. 
+            if not os.path.isdir(path): os.mkdir(path)
+
+            proxy    = os.path.join(path, os.path.splitext(file)[0] + '.jpg')
+            command += '--tocolorspace "sRGB" -ch "R,G,B" -o %s ' % proxy
 
         self.parms['command_arg'] = command
         self.parms['command']     = const.OIIOTOOL
@@ -218,3 +235,4 @@ class BatchFarm(HaFarm):
         self.parms['command_arg'] =  '`ls %s | grep -v "%s" ` | grep File ' % (details[0], const.TILE_ID)
         self.parms['start_frame'] = 1
         self.parms['end_frame']   = 1
+        self.parms['email_stdout'] = True
