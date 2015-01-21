@@ -376,8 +376,15 @@ def render_pressed(node):
         if rop.type().name() != 'ifd':
             continue
 
-        # Use as usual frame ranges from connected rops to schedule Mantra renders:
-        if not node.parm("use_frame_list").eval():
+        # Render randomly selected frames provided by the user in HaFarm parameter:
+        if  node.parm("use_frame_list").eval():
+            # TODO: Doesn't suppport tiling nor anything down the stream...
+            frames = node.parm("frame_list").eval()
+            frames = utils.parse_frame_list(frames)
+            mantra_frames = mantra_render_frame_list(node, rop, hscript_farm, frames)
+        else:
+
+            # Business as usual:
             # TODO: Move tiling inside MantraFarm class...
             # Custom tiling:
             if rop.parm('vm_tile_render').eval():
@@ -386,6 +393,7 @@ def render_pressed(node):
                 # Proceed normally (no tiling required):
                 mantra_farm = MantraFarm(node, rop, job_name = None, parent_job_name = hscript_farm.parms['job_name'],)
                 show_details("Mantra", mantra_farm.parms, mantra_farm.render()) 
+
                 # Proceed with debuging:
                 if node.parm("debug_images").eval():
                     debug_render  = hafarm.BatchFarm(job_name = hscript_farm.parms['job_name'] + "_debug", 
@@ -394,10 +402,13 @@ def render_pressed(node):
                     debug_render.inspect_images(mantra_farm.parms['output_picture'])
                     debug_render.render()
 
-        # Render randomly selected frames provided by the user in HaFarm parameter:
-        # TODO: Doesn't suppport tiling atm.
-        else:
-            frames = node.parm("frame_list").eval()
-            frames = utils.parse_frame_list(frames)
-            mantra_frames = mantra_render_frame_list(node, rop, hscript_farm, frames)
+                # Make a movie from proxy frames:
+                if node.parm("make_proxy").eval() and node.parm("make_movie").eval():
+                    movie  = hafarm.BatchFarm(job_name = hscript_farm.parms['job_name'] + "_mp4", 
+                                              queue    = str(node.parm('queue').eval()),
+                                              parent_job_name = [mantra_farm.parms['job_name']])
+                    movie.make_movie(mantra_farm.parms['output_picture'])
+                    movie.render()
+
+        
             

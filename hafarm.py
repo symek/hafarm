@@ -238,3 +238,20 @@ class BatchFarm(HaFarm):
         self.parms['start_frame'] = 1
         self.parms['end_frame']   = 1
         self.parms['email_stdout'] = True
+
+    def make_movie(self, filename):
+        '''Make a movie from custom files. '''
+        from ha.path import padding
+
+        # Input filename with proxy correction:
+        details = padding(filename, 'nuke')
+        base, file = os.path.split(details[0])
+        file, ext  = os.path.splitext(file)
+        inputfile  = os.path.join(base, const.PROXY_POSTFIX, file + '.jpg')
+        outputfile = os.path.join(base, padding(filename)[0] + 'mp4')
+        command = "-y -r 25 -i %s -an -vcodec libx264 %s" % (inputfile, outputfile)
+        self.parms['command'] = 'ffmpeg '
+        self.parms['command_arg'] = command
+        self.parms['start_frame'] = 1
+        self.parms['end_frame']   = 1
+
