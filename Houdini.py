@@ -191,7 +191,8 @@ class MantraFarm(hafarm.HaFarm):
             
         # Doesn't make sense for Mantra, but will be expected as usual later on:
         self.parms['frame_range_arg'] = ["%s%s%s", '', '', ''] 
-        self.parms['req_resources'] = 'procslots=%s' % int(self.node.parm('slots').eval())
+        self.parms['req_resources']   = 'procslots=%s' % int(self.node.parm('slots').eval())
+        self.parms['make_proxy']      = bool(self.node.parm("make_proxy").eval())
 
         # Hold until parent job isn't completed
         if parent_job_name:
@@ -206,22 +207,16 @@ class MantraFarm(hafarm.HaFarm):
             self.parms['end_frame']      = int(self.rop.parm('f2').eval())
             self.parms['output_picture'] = str(self.rop.parm("vm_picture").eval())
 
-        # Crop support via python filtering:
-        # crop_parms (a,b,c):
-        # a: number of horizontal tiles
-        # b: number of vertical tiles
-        # c: current tile number
-        if crop_parms != (1,1,0) and rop: 
-            filter_path = '/STUDIO/houdini/houdini13.0/scripts/python/HaFilterIFD_v01.py'
-            # TODO: Kind of hacky, as we don't have currently standard way of dealing with ifd python 
-            # filtering. 
-            if not 'mantra -P' in self.parms['command']:
-                crop_arg = ' -P "%s --tiling %s"' % (filter_path, "%".join([str(x) for x in crop_parms]))
-            else:
-                # FIXME: This won't work atm:
-                print "Double Python filtering not supported atm. Remove -P flag from ROP command field."
+        # Adding Python filtering:
+        # Crop support:
+        python_command = []
+        if crop_parms != (1,1,0):     
+            python_command.append('--tiling %s' % ("%".join([str(x) for x in crop_parms])))
+        # Make proxies (mutually exclusive with crops...)
+        elif self.parms['make_proxy']:
+            python_command.append("--proxy")
 
-            self.parms['command'] += crop_arg
+        self.parms['command'] += ' -P "%s ' % const.MANTRA_FILTER + " ".join(python_command) + '"'
         
 
     def pre_schedule(self):
@@ -288,6 +283,9 @@ def mantra_render_with_tiles(node, rop, hscript_farm):
     batch_farm = hafarm.BatchFarm(job_name = merging_job_name, 
                                   parent_job_name = tile_job_ids, 
                                   queue = str(node.parm('queue').eval()))
+
+    # Need to copy it here, as proxies can be made after tiles merging of course...
+    batch_farm.parms['make_proxy']  = bool(node.parm("make_proxy").eval())
     # Queue control
     batch_farm.parms['start_frame'] = mantra_farm.parms['start_frame']
     batch_farm.parms['end_frame']   = mantra_farm.parms['start_frame'] # This is single job script (oiiotool does looping well): 
@@ -389,11 +387,12 @@ def render_pressed(node):
                 mantra_farm = MantraFarm(node, rop, job_name = None, parent_job_name = hscript_farm.parms['job_name'],)
                 show_details("Mantra", mantra_farm.parms, mantra_farm.render()) 
                 # Proceed with debuging:
-                debug_render  = hafarm.BatchFarm(job_name = hscript_farm.parms['job_name'] + "_debug", 
-                                                 queue    = str(node.parm('queue').eval()),
-                                                 parent_job_name = [mantra_farm.parms['job_name']])
-                debug_render.inspect_images(mantra_farm.parms['output_picture'])
-                debug_render.render()
+                if node.parm("debug_images").eval():
+                    debug_render  = hafarm.BatchFarm(job_name = hscript_farm.parms['job_name'] + "_debug", 
+                                                     queue    = str(node.parm('queue').eval()),
+                                                     parent_job_name = [mantra_farm.parms['job_name']])
+                    debug_render.inspect_images(mantra_farm.parms['output_picture'])
+                    debug_render.render()
 
         # Render randomly selected frames provided by the user in HaFarm parameter:
         # TODO: Doesn't suppport tiling atm.
