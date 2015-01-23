@@ -37,9 +37,13 @@ class HaSGE(object):
         file.write("echo Machine name: ${HOSTNAME}\n")
         file.write("echo User    name: ${USER}\n")
         file.write("echo Slots:        $NSLOTS\n")
+        file.write("echo Processors  : `nproc`\n")
+        file.write("NPROC = `nproc`\n")
+        # Determine # of cores and set max for rendering if required (that is slots = 0)
         file.write("echo Memory stats: `egrep 'Mem|Cache|Swap' /proc/meminfo`\n")
         file.write("echo Scene file  : %s\n" % self.parms['scene_file'])
         #file.write("echo CPU    stats: `mpstat`\n")
+
 
         # Normally a host application (Hou, Maya, Nuke) declares parms['frame_range_arg'] like:
         # ['-arbirary_flag %s -another -%s ...', key, key, ...], so render manager (which ever it is)
@@ -74,10 +78,10 @@ class HaSGE(object):
         if self.parms['email_stdout']:
             if not self.parms['email_list']:
                 self.parms['email_list'] = [utils.get_email_address()]
-            # stdout = 'STDOUT=$(cd `dirname "${BASH_SOURCE[0]}"` && pwd)/`basename "${BASH_SOURCE[0]}"`; cat $STDOUT '
+            stdout = 'STDOUT=$(cd `dirname "${BASH_SOURCE[0]}"` && pwd)/`basename "${BASH_SOURCE[0]}"`;\n'
             topic = 'DEBUGING FOR: ' + self.parms['job_name']
-            file.write("echo ${0}\n")
-            send_mail = 'echo `echo TEST TEST | mail -d -s "%s" "%s"` \n' % (topic, self.parms['email_list'][0])
+            send_mail = 'echo `cat $STDOUT` | mail -s "%s" "%s" \n' % (topic, self.parms['email_list'][0])
+            file.write(stdout)
             file.write(send_mail)
         file.close()
 
