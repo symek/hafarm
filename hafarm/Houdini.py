@@ -32,13 +32,13 @@ class HbatchFarm(hafarm.HaFarm):
 
         # This is because we do tiling ourselfs:
         if self.rop.type().name() == 'ifd':
-            self.parms['command_arg'] += " --ignore_tiles "
+            self.parms['command_arg'] += ["--ignore_tiles"]
 
             # This will change Rop setting to save ifd to disk:
-            self.parms['command_arg'] += ' --generate_ifds '
+            self.parms['command_arg'] += ["--generate_ifds"]
             # also within non-default path:
             if not self.node.parm("ifd_path").isAtDefault():
-                self.parms['command_arg'] += " --ifd_path %s " % self.node.parm("ifd_path").eval()
+                self.parms['command_arg'] += ["--ifd_path %s" % self.node.parm("ifd_path").eval()]
 
             # Default Mantra imager (doesn't make sense in hbatch cache though)
             # TODO: Shouln't it be an ifd file instead of the image?
@@ -73,7 +73,7 @@ class HbatchFarm(hafarm.HaFarm):
         if self.node.parm("use_frame_list").eval():
             self.parms['frame_list']  = str(self.node.parm("frame_list").eval())
             self.parms['step_frame']  = int(self.rop.parm('f2').eval())
-            self.parms['command_arg'] += '-l %s ' %  self.parms['frame_list']
+            self.parms['command_arg'] += ['-l %s' %  self.parms['frame_list']]
 
 
         # FIXME: this is meaningless, make it more general
@@ -104,7 +104,7 @@ class HbatchFarm(hafarm.HaFarm):
             self.parms['req_start_time'] = utils.compute_delay_time(delay)
 
         # This will overwrite any from above command arguments for harender according to command_arg parm:
-        self.parms['command_arg'] += str(self.node.parm("command_arg").eval())
+        self.parms['command_arg'] += [str(self.node.parm("command_arg").eval())]
 
 
     def pre_schedule(self):
@@ -131,17 +131,17 @@ class HbatchFarm(hafarm.HaFarm):
         command = self.parms['command_arg']
 
         # Threads:
-        command += '-j %s ' % self.parms['slots']
+        command += ['-j %s' % self.parms['slots']]
 
         # Add targets:
         if self.parms['target_list']:
-            command += ' -d %s ' % " ".join(self.parms['target_list'])
+            command += ['-d %s' % " ".join(self.parms['target_list'])]
 
         # Save to parms again:
         self.parms['command_arg'] = command
 
         # Any debugging info [object, outout]:
-        return ['pre_schedule', 'render with arguments:' + command]
+        return ['pre_schedule', 'render with arguments:'] + command
 
 
 
@@ -154,7 +154,7 @@ class MantraFarm(hafarm.HaFarm):
         # Keep reference to assigned rop
         self.rop = rop
         self.node = node
-        self.parms['command_arg']    = ''
+        self.parms['command_arg']    = []
         self.parms['command']        = '$HFS/bin/mantra'
 
         # Max tasks render managet will attempt to aquire at once: 
@@ -235,17 +235,14 @@ class MantraFarm(hafarm.HaFarm):
             like renderer command and arguments used to render on farm.
         """
 
-        # Command for host application:
-        command = self.parms['command_arg']
-
         # Threads:
-        command += ' -j %s ' % self.parms['slots']
+        self.parms['command_arg'] += ['-j %s' % self.parms['slots']]
 
         # Save to parms again:
-        self.parms['command_arg'] = command + " -f " # <- place for IFD fiile
+        self.parms['command_arg'] += ["-f "] # <- place for IFD file
 
         # Any debugging info [object, outout]:
-        return ['pre_schedule', 'render with arguments:' + command]
+        return ['pre_schedule', 'render with arguments:'] +  self.parms['command_arg']
 
 
 def mantra_render_frame_list(node, rop, hscript_farm, frames):
