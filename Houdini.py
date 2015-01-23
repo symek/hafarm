@@ -399,7 +399,7 @@ def render_pressed(node):
                     debug_render  = hafarm.BatchFarm(job_name = hscript_farm.parms['job_name'] + "_debug", 
                                                      queue    = str(node.parm('queue').eval()),
                                                      parent_job_name = [mantra_farm.parms['job_name']])
-                    debug_render.inspect_images(mantra_farm.parms['output_picture'])
+                    debug_render.debug_images(mantra_farm.parms['output_picture'])
                     debug_render.render()
 
                 # Make a movie from proxy frames:
