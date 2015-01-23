@@ -10,3 +10,4 @@ OIIOTOOL = 'LD_PRELOAD=/opt/packages/oiio-1.4.15/lib/libOpenImageIO.so.1.4 /opt/
 MANTRA_FILTER = '/STUDIO/houdini/houdini13.0/scripts/python/HaFilterIFD_v01.py'
 PROXY_POSTFIX = "proxy"
 TILES_POSTFIX = 'tiles'
+MAX_CORES      = '@MAX_CORES/>'

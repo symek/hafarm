@@ -19,7 +19,7 @@ hafarm_defaults = {'start_frame': 1,
                    'target_list': [],   # Used in applications with multiply targets (cameras in Maya batch, Write node in Nuke)
                    'layer_list' : [],   # A subset of a scene to be rendered (used by Maya, in Houdini it would be takes for example.)
                    'command'    : "",   # Rendering command.
-                   'command_arg': "",   # Rendering command arguments.
+                   'command_arg': [],   # Rendering command arguments as list.
                    'email_list' : [],   # A list of emails for notification
                    'email_opt'  : '',   # Options for emails (job's states triggering notification)
                    'make_proxy' : False,# Optionally makes a proxy for output image. 
@@ -174,7 +174,7 @@ class BatchFarm(HaFarm):
         self.parms['queue']          = queue
         self.parms['job_name']       = job_name
         self.parms['command']        = command
-        self.parms['command_arg']    = command_arg
+        self.parms['command_arg']    = [command_arg]
         self.parms['hold_jid']       = parent_job_name
         self.parms['ignore_check']   = True
         self.parms['slots']          = 1
@@ -234,7 +234,7 @@ class BatchFarm(HaFarm):
         from ha.path import padding
         details = padding(filename, 'shell')
         self.parms['command'] = '$HFS/bin/iinfo -b -i '
-        self.parms['command_arg'] =  '`ls %s | grep -v "%s" ` | grep File ' % (details[0], const.TILE_ID)
+        self.parms['command_arg'] =  ['`ls %s | grep -v "%s" ` | grep File ' % (details[0], const.TILE_ID)]
         self.parms['start_frame'] = 1
         self.parms['end_frame']   = 1
         self.parms['email_stdout'] = True
@@ -251,7 +251,7 @@ class BatchFarm(HaFarm):
         outputfile = os.path.join(base, padding(filename)[0] + 'mp4')
         command = "-y -r 25 -i %s -an -vcodec libx264 %s" % (inputfile, outputfile)
         self.parms['command'] = 'ffmpeg '
-        self.parms['command_arg'] = command
+        self.parms['command_arg'] = [command]
         self.parms['start_frame'] = 1
         self.parms['end_frame']   = 1
 

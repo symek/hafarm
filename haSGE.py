@@ -62,11 +62,12 @@ class HaSGE(object):
                 else: sge_frames_variables.append(self.parms[key])
 
         # SGE specific tweak (we can rely on SGE env variable instead of specifying explicite frames)
-        self.parms['command_arg'] += self.parms['frame_range_arg'][0] % tuple(sge_frames_variables)
+        self.parms['command_arg'] += [self.parms['frame_range_arg'][0] % tuple(sge_frames_variables)]
+        command_arg = " ".join(arg for arg in self.parms['command_arg'])
 
         # Finally render command:
         file.write('%s %s %s\n' \
-            % (self.parms['command'], self.parms['command_arg'], self.parms['scene_file']))
+            % (self.parms['command'], command_arg, self.parms['scene_file']))
 
         file.write("echo Render ends: `date`\n")
         file.write("echo Render target: %s\n" % self.parms['output_picture'])
