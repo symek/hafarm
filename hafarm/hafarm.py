@@ -229,7 +229,7 @@ class BatchFarm(HaFarm):
         self.parms['command']     = const.OIIOTOOL
         return command
 
-    def inspect_images(self, filename):
+    def debug_images(self, filename):
         '''By using iinfo utility inspect filename (usually renders).'''
         from ha.path import padding
         details = padding(filename, 'shell')
