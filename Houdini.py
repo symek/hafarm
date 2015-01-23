@@ -27,6 +27,8 @@ class HbatchFarm(hafarm.HaFarm):
         # command will be either hscript csh script shipped with Houdini 
         # or any custom render script (harender atm.)
         self.parms['command']     = str(self.node.parm("command").eval())
+        # Max tasks render managet will attempt to aquire at once: 
+        self.parms['max_running_tasks'] = int(self.node.parm('max_running_tasks').eval())
 
         # This is because we do tiling ourselfs:
         if self.rop.type().name() == 'ifd':
@@ -154,6 +156,9 @@ class MantraFarm(hafarm.HaFarm):
         self.node = node
         self.parms['command_arg']    = ''
         self.parms['command']        = '$HFS/bin/mantra'
+
+        # Max tasks render managet will attempt to aquire at once: 
+        self.parms['max_running_tasks'] = int(self.node.parm('max_running_tasks').eval())
 
         # Mantra jobs' names are either derived from parent job (hscript)
         # or provided by user (to allow of using ifd names for a job.)
