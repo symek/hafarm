@@ -210,7 +210,14 @@ class MantraFarm(hafarm.HaFarm):
             self.parms['command']        = '$HFS/bin/' +  str(self.rop.parm('soho_pipecmd').eval()) 
             self.parms['start_frame']    = int(self.rop.parm('f1').eval())
             self.parms['end_frame']      = int(self.rop.parm('f2').eval())
-            self.parms['output_picture'] = str(self.rop.parm("vm_picture").eval())
+            self.parms['output_picture'] = str(self.rop.parm("vm_picture").eval())        
+            
+            # Setting != 0 idicates we want to do something about it:
+            if self.node.parm("slots").eval() != 0:
+                threads = self.node.parm("slots").eval()
+                # Note: "-j threads" appears in a command only if mantra doesn't take all of them. 
+                self.parms['command_arg'] += ['-j %s' % threads]
+                self.parms['slots'] = threads
 
         # Adding Python filtering:
         # Crop support:
@@ -235,11 +242,10 @@ class MantraFarm(hafarm.HaFarm):
             like renderer command and arguments used to render on farm.
         """
 
-        # Threads:
-        self.parms['command_arg'] += ['-j %s' % self.parms['slots']]
-
-        # Save to parms again:
-        self.parms['command_arg'] += ["-f "] # <- place for IFD file
+        # In this case, scene_file is IFD for mantra: 
+        # TODO: Cleanup command creation process: we should create full command here
+        # perhaps?
+        self.parms['command_arg'] += ["-f "] #% self.parm['scene_file']
 
         # Any debugging info [object, outout]:
         return ['pre_schedule', 'render with arguments:'] +  self.parms['command_arg']
