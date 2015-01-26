@@ -38,7 +38,7 @@ class HaSGE(object):
         file.write("echo User    name: ${USER}\n")
         file.write("echo Slots:        $NSLOTS\n")
         file.write("echo Processors  : `nproc`\n")
-        file.write("NPROC = `nproc`\n")
+        file.write("NPROC=`nproc`\n")
         # Determine # of cores and set max for rendering if required (that is slots = 0)
         file.write("echo Memory stats: `egrep 'Mem|Cache|Swap' /proc/meminfo`\n")
         file.write("echo Scene file  : %s\n" % self.parms['scene_file'])
