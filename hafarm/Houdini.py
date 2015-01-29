@@ -337,7 +337,7 @@ def mantra_render_from_ifd(ifds, start, end, node, job_name=None):
     show_details("Mantra", mantra_farm.parms, mantra_farm.render()) 
 
 
-def show_details(title, parms, result, verbose=False):
+def show_details(title, parms, result, verbose=True):
     '''This is temporary debugging facility. '''
     
     if not verbose:
@@ -356,8 +356,9 @@ def show_details(title, parms, result, verbose=False):
         print " ==== Retured values: ==== "
         for x in range(0, len(result),2):
             print "\t" + result[x],
-            print ": ",
-            print str(result[x+1])
+            if len(result) > x+1:
+                print ": ",
+                print str(result[x+1])
 
 
 def render_pressed(node):
