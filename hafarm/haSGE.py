@@ -209,7 +209,7 @@ class HaSGE(object):
         """Get list of defined queues from manager. 
         NOTE: API candidate.."""
         #TODO: get this from sge with qconf -sql
-        return ('3d', 'nuke', 'turbo_nuke')
+        return ('3d', 'nuke', 'turbo_nuke', 'dev')
 
     def get_group_list(self):
         """Get list of defined groups from manager. 
