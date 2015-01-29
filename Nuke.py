@@ -22,7 +22,7 @@ class NukeFarm(hafarm.HaFarm):
         super(NukeFarm, self).__init__()
         version = str(nuke.NUKE_VERSION_MAJOR) + "." + str(nuke.NUKE_VERSION_MINOR)
         self.parms['command']     = 'Nuke%s' % version
-        self.parms['command_arg'] = '-x -V '
+        self.parms['command_arg'] = ['-x -V ']
         self.parms['scene_file']  = str(nuke.root().name())
         self.parms['job_name']    = self.generate_unique_job_name(self.parms['scene_file'])
         self.parms['req_license']    = 'nuke_lic=1' 
@@ -48,17 +48,17 @@ class NukeFarm(hafarm.HaFarm):
         command = self.parms['command_arg']
 
         # Threads:
-        command += '-m %s ' % self.parms['slots']
+        command += ['-m %s ' % self.parms['slots']]
 
         # Add targets:
         if self.parms['target_list']:
-            command += ' -X %s ' % " ".join(self.parms['target_list'])
+            command += [' -X %s ' % " ".join(self.parms['target_list'])]
 
         # Save to parms again:
         self.parms['command_arg'] = command
 
         # Any debugging info [object, outout]:
-        return result + ['pre_schedule', 'render with arguments:' + command]
+        return result + ['pre_schedule', 'render with arguments:', command]
 
 
 

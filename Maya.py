@@ -13,7 +13,7 @@ class MayaFarm(hafarm.HaFarm):
     def __init__(self):
         super(MayaFarm, self).__init__()
         self.parms['command']     = '$MAYA_LOCATION/bin/Render'
-        self.parms['command_arg'] = '-mr:v 4 '
+        self.parms['command_arg'] = ['-mr:v 4 ']
         self.parms['scene_file']  = str(maya.cmds.file(save=True))
         self.parms['job_name']    = self.generate_unique_job_name(self.parms['scene_file'])
         self.parms['output_picture'] = ""
@@ -47,21 +47,21 @@ class MayaFarm(hafarm.HaFarm):
 
         command = self.parms['command_arg']
         # Threads (mentalray specific atm):
-        command += '-mr:rt %s ' % self.parms['slots']
+        command += ['-mr:rt %s ' % self.parms['slots']]
         
         # Add camera option to commanline:
         camera  = self.parms['target_list']
-        command += ' -cam %s ' % camera[0]
+        command += [' -cam %s ' % camera[0]]
 
         # Add Render Layer to commanline:
-        if self.parms['layer_list']: command += "-l "
+        if self.parms['layer_list']: command += ["-l "]
         for layer in self.parms['layer_list']:
-            command += '%s ' % layer
+            command += ['%s ' % layer]
 
         self.parms['command_arg'] = command
 
         # Any debugging info [object, outout]:
-        return result + ['pre_schedule', 'render with arguments:' + command]
+        return result + ['pre_schedule', 'render with arguments:', command]
 
 
 class MayaFarmGUI(object):
@@ -138,7 +138,7 @@ class MayaFarmGUI(object):
         result = self.farm.render()
         print 'Pre Render Log:'
         for x in range(len(result)/2):
-            print result[x*2] + str(":"), 
+            print str(result[x*2]) + str(":"), 
             print result[(x*2)+1]
 
         maya.cmds.deleteUI(self.window)
