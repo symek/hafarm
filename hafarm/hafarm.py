@@ -225,7 +225,7 @@ class BatchFarm(HaFarm):
             proxy    = os.path.join(path, os.path.splitext(file)[0] + '.jpg')
             command += '--tocolorspace "sRGB" -ch "R,G,B" -o %s ' % proxy
 
-        self.parms['command_arg'] = command
+        self.parms['command_arg'] = [command]
         self.parms['command']     = const.OIIOTOOL
         return command
 
