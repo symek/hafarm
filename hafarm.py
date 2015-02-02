@@ -57,7 +57,7 @@ class HaFarmParms(dict):
         super(HaFarmParms, self).__init__()
 
         # Init with defaults:
-        self.merge_parms(hafarm_defaults)
+        self.merge_parms(defaults)
 
         # Set parms unrelated to host, like jobname, user etc:
         if initilize:
