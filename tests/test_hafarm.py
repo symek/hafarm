@@ -7,9 +7,9 @@ from hafarm import HaFarmParms, hafarm_defaults, HaFarm, BatchFarm
 join_tiles_output = """ /tmp/tiles/test.%04d__TILE__0.exr /tmp/tiles/test.%04d__TILE__1.exr \
 --over /tmp/tiles/test.%04d__TILE__2.exr --over /tmp/tiles/test.%04d__TILE__3.exr \
 --over -o /tmp/test.%04d.exr --frames 1-3 """
-join_tiles_output_proxy = """' /tmp/tiles/test.%04d__TILE__0.exr /tmp/tiles/test.%04d__TILE__1.exr \
---over /tmp/tiles/test.%04d__TILE__2.exr --over /tmp/tiles/test.%04d__TILE__3.exr 
---over -o /tmp/test.%04d.exr --frames 1-3 --tocolorspace "sRGB" -ch "R,G,B" -o /tmp/proxy/test.%04d.jpg '"""
+join_tiles_output_proxy = """ /tmp/tiles/test.%04d__TILE__0.exr /tmp/tiles/test.%04d__TILE__1.exr \
+--over /tmp/tiles/test.%04d__TILE__2.exr --over /tmp/tiles/test.%04d__TILE__3.exr \
+--over -o /tmp/test.%04d.exr --frames 1-3 --tocolorspace "sRGB" -ch "R,G,B" -o /tmp/proxy/test.%04d.jpg """
 
 class TestHaFarmParms(unittest.TestCase):
     def test___init__(self):
@@ -142,22 +142,23 @@ class TestBatchFarm(unittest.TestCase):
 
     def test_join_tiles(self):
         batch_farm = BatchFarm("Test", parent_job_name=[], queue='3d')
-        sequence = 'test.0001.exr'
+        sequence = '/tmp/test.0001.exr'
         result = batch_farm.join_tiles(sequence, 1, 3, 4)
         self.assertEqual([result], batch_farm.parms['command_arg'])
         self.assertEqual(result, join_tiles_output)
         self.assertEqual(batch_farm.parms['command'], const.OIIOTOOL)
 
     def test_join_tiles_proxy(self):
+        import os
         batch_farm = BatchFarm("Test", parent_job_name=[], queue='3d')
         batch_farm.parms['make_proxy'] = True
         sequence = '/tmp/test.0001.exr'
         result = batch_farm.join_tiles(sequence, 1, 3, 4)
         self.assertEqual([result], batch_farm.parms['command_arg'])
         self.assertEqual(result, join_tiles_output_proxy)
-        self.assertEqual(batch_farm.parms['command'], const.OIIOTOOL)
-        proxy_path = os.path.join('/tmp', const.TILES_POSTFIX)
-        self.assertTrue(os.path.exists(proxy_path))
+        self.assertEqual(batch_farm.parms['command'], const.OIIOTOOL, 'batchfarm command should match const.OIIOTOOL')
+        proxy_path = os.path.join('/tmp', const.PROXY_POSTFIX)
+        self.assertTrue(os.path.exists(proxy_path), "This path should exist: %s" % proxy_path)
         
 
 
