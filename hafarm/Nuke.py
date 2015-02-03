@@ -58,7 +58,7 @@ class NukeFarm(hafarm.HaFarm):
         self.parms['command_arg'] = command
 
         # Any debugging info [object, outout]:
-        return result + ['pre_schedule', 'render with arguments:', command]
+        return []
 
 
 

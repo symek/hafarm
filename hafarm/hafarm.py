@@ -135,17 +135,24 @@ class HaFarm(HaSGE):
         new_scene_file = os.path.join(path, self.parms['job_name']) + ext
         self.parms['scene_file'] = new_scene_file
         copy(scene_file, new_scene_file)
-        return ['copy_scene_file', new_scene_file]
+        self.logger.info('copy_scene_file(): \n\t%s\n\t%s' % (scene_file, new_scene_file))
+        return True
 
     def render(self):
         """Make defaults steps, scene copy and call parent specific command.
         """
         from time import time
         self.parms['submission_time'] = time()
-        result  = self.pre_schedule()
+
+
         # This should stay renderfarm agnostic call.
+        result = self.pre_schedule()
         result += super(HaFarm, self).render()
         result += self.post_schedule()
+
+        # Logger call:
+        self.logger.info("render(): \n\t" + "\n\t".join(result))
+        
         return result
 
     def get_queue_list(self):
