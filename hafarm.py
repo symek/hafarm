@@ -227,6 +227,10 @@ class BatchFarm(HaFarm):
 
         self.parms['command_arg'] = [command]
         self.parms['command']     = const.OIIOTOOL
+        
+        # TODO: Uncomment bellow once checked:
+        self.parms['start_frame'] = 1
+        self.parms['end_frame']   = 1 
         return command
 
     def debug_images(self, filename):
