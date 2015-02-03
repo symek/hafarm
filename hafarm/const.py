@@ -11,3 +11,4 @@ MANTRA_FILTER = '/STUDIO/houdini/houdini13.0/scripts/python/HaFilterIFD_v01.py'
 PROXY_POSTFIX = "proxy"
 TILES_POSTFIX = 'tiles'
 MAX_CORES      = '@MAX_CORES/>'
+IINFO          = '$HFS/bin/iinfo -b -i '
