@@ -4,6 +4,7 @@ from haSGE import HaSGE
 import os, sys
 import const
 import utils
+from Logger import Logger
 
 
 hafarm_defaults = {'start_frame': 1,
@@ -111,6 +112,7 @@ class HaFarm(HaSGE):
     def __init__(self):
         super(HaFarm, self).__init__()
         self.parms = HaFarmParms(initilize=True)
+        self.logger = Logger(self.__class__.__name__)
 
 
     def generate_unique_job_name(self, name):
