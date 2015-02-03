@@ -226,9 +226,7 @@ class BatchFarm(HaFarm):
             command += '--tocolorspace "sRGB" -ch "R,G,B" -o %s ' % proxy
 
         self.parms['command_arg'] = [command]
-        self.parms['command']     = const.OIIOTOOL
-        
-        # TODO: Uncomment bellow once checked:
+        self.parms['command']     = const.OIIOTOOL      
         self.parms['start_frame'] = 1
         self.parms['end_frame']   = 1 
         return command
@@ -237,7 +235,7 @@ class BatchFarm(HaFarm):
         '''By using iinfo utility inspect filename (usually renders).'''
         from ha.path import padding
         details = padding(filename, 'shell')
-        self.parms['command'] = '$HFS/bin/iinfo -b -i '
+        self.parms['command'] = const.IINFO
         self.parms['command_arg'] =  ['`ls %s | grep -v "%s" ` | grep File ' % (details[0], const.TILE_ID)]
         self.parms['start_frame'] = 1
         self.parms['end_frame']   = 1
