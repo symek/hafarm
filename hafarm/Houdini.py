@@ -288,25 +288,24 @@ def mantra_render_with_tiles(node, rop, hscript_farm):
     
     # Tile merging job:
     merging_job_name = hscript_farm.parms['job_name'] + '_merge'
-    batch_farm = hafarm.BatchFarm(job_name = merging_job_name, 
+    merge_job = hafarm.BatchFarm(job_name = merging_job_name, 
                                   parent_job_name = tile_job_ids, 
                                   queue = str(node.parm('queue').eval()))
 
     # Need to copy it here, as proxies can be made after tiles merging of course...
-    batch_farm.parms['make_proxy']  = bool(node.parm("make_proxy").eval())
+    merge_job.parms['make_proxy']  = bool(node.parm("make_proxy").eval())
+
     # Queue control
-    batch_farm.parms['start_frame'] = mantra_farm.parms['start_frame']
-    batch_farm.parms['end_frame']   = mantra_farm.parms['start_frame'] # This is single job script (oiiotool does looping well): 
-    batch_farm.parms['output_picture'] = mantra_farm.parms['output_picture'] # This is for house keeping only
+    merge_job.parms['output_picture'] = mantra_farm.parms['output_picture'] # This is for house keeping only
 
     # This prepares commandline to execute:
-    batch_farm.join_tiles(mantra_farm.parms['output_picture'],
+    merge_job.join_tiles(mantra_farm.parms['output_picture'],
                           mantra_farm.parms['start_frame'],
                           mantra_farm.parms['end_frame'],
                           tiles_x*tiles_y)
 
-    batch_farm.render()
-    return mantra_tiles.append(batch_farm)
+    merge_job.render()
+    return mantra_tiles.append(merge_job)
 
 
 def mantra_render_from_ifd(ifds, start, end, node, job_name=None):
