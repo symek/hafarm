@@ -88,7 +88,7 @@ class HaSGE(object):
 
         # As a convention we return a list with function name and return value:
         self.parms['script_path'] = script_path
-        return ['create_job_script', script_path]
+        return ['script_path: %s' % script_path]
 
 
     def submit_array_job(self):
@@ -169,7 +169,7 @@ class HaSGE(object):
                                                                                    start_time, \
                                                                                    self.parms['script_path'])
         result = os.popen(command)
-        return ['qsub command', command] + ['submit_array_job'] + result.readlines()
+        return ['qsub: %s' % command] + result.readlines()
 
 
     def test_connection(self):

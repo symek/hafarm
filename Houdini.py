@@ -141,7 +141,7 @@ class HbatchFarm(hafarm.HaFarm):
         self.parms['command_arg'] = command
 
         # Any debugging info [object, outout]:
-        return ['pre_schedule', 'render with arguments:'] + command
+        return []
 
 
 
@@ -248,7 +248,7 @@ class MantraFarm(hafarm.HaFarm):
         self.parms['command_arg'] += ["-f "] #% self.parm['scene_file']
 
         # Any debugging info [object, outout]:
-        return ['pre_schedule', 'render with arguments:'] +  self.parms['command_arg']
+        return []
 
 
 def mantra_render_frame_list(node, rop, hscript_farm, frames):
@@ -336,7 +336,7 @@ def mantra_render_from_ifd(ifds, start, end, node, job_name=None):
     show_details("Mantra", mantra_farm.parms, mantra_farm.render()) 
 
 
-def show_details(title, parms, result, verbose=True):
+def show_details(title, parms, result, verbose=False):
     '''This is temporary debugging facility. '''
     
     if not verbose:
