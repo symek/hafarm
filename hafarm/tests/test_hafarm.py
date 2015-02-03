@@ -10,6 +10,7 @@ join_tiles_output = """ /tmp/tiles/test.%04d__TILE__0.exr /tmp/tiles/test.%04d__
 join_tiles_output_proxy = """ /tmp/tiles/test.%04d__TILE__0.exr /tmp/tiles/test.%04d__TILE__1.exr \
 --over /tmp/tiles/test.%04d__TILE__2.exr --over /tmp/tiles/test.%04d__TILE__3.exr \
 --over -o /tmp/test.%04d.exr --frames 1-3 --tocolorspace "sRGB" -ch "R,G,B" -o /tmp/proxy/test.%04d.jpg """
+debug_images_output = '`ls /tmp/test.*.exr | grep -v "__TILE__" ` | grep File '
 
 class TestHaFarmParms(unittest.TestCase):
     def test___init__(self):
@@ -135,10 +136,10 @@ class TestBatchFarm(unittest.TestCase):
         self.assertEqual(batch_farm.parms['hold_jid'], [])
         self.assertEqual(batch_farm.parms['queue'], "3d")
 
-#     def test_debug_images(self):
-#         # batch_farm = BatchFarm(job_name, parent_job_name, queue, command, command_arg)
-#         # self.assertEqual(expected, batch_farm.debug_images(filename))
-#         assert False # TODO: implement your test here
+    def test_debug_images(self):
+        batch_farm = BatchFarm("Test", [], '3d')
+        batch_farm.debug_images('/tmp/test.0001.exr')
+        self.assertEqual(batch_farm.parms['command_arg'], [debug_images_output])
 
     def test_join_tiles(self):
         batch_farm = BatchFarm("Test", parent_job_name=[], queue='3d')
