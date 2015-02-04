@@ -136,7 +136,7 @@ class HaFarm(HaSGE):
         self.parms['scene_file'] = new_scene_file
         copy(scene_file, new_scene_file)
         self.logger.info('copy_scene_file(): \n\t%s\n\t%s' % (scene_file, new_scene_file))
-        return True
+        return new_scene_file
 
     def render(self):
         """Make defaults steps, scene copy and call parent specific command.
