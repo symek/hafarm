@@ -245,7 +245,7 @@ class MantraFarm(hafarm.HaFarm):
         # In this case, scene_file is IFD for mantra: 
         # TODO: Cleanup command creation process: we should create full command here
         # perhaps?
-        self.parms['command_arg'] += ["-f "] #% self.parm['scene_file']
+        self.parms['command_arg'] += ["-V1 -f "] #% self.parm['scene_file']
 
         # Any debugging info [object, outout]:
         return []
