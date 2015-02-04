@@ -135,7 +135,7 @@ class HaFarm(HaSGE):
         new_scene_file = os.path.join(path, self.parms['job_name']) + ext
         self.parms['scene_file'] = new_scene_file
         copy(scene_file, new_scene_file)
-        self.logger.info('copy_scene_file(): \n\t%s\n\t%s' % (scene_file, new_scene_file))
+        self.logger.info('Scene file copied to: %s' % (new_scene_file))
         return new_scene_file
 
     def render(self):
@@ -146,12 +146,13 @@ class HaFarm(HaSGE):
 
 
         # This should stay renderfarm agnostic call.
-        result = self.pre_schedule()
-        result += super(HaFarm, self).render()
-        result += self.post_schedule()
+        pre_result = self.pre_schedule()
+        result     = super(HaFarm, self).render()
+        post_result= self.post_schedule()
 
         # Logger call:
-        self.logger.info("render(): \n\t" + "\n\t".join(result))
+        for item in result:
+            self.logger.info("%s: %s" % (item, result[item]))
         
         return result
 

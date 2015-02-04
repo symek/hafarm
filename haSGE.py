@@ -88,7 +88,7 @@ class HaSGE(object):
 
         # As a convention we return a list with function name and return value:
         self.parms['script_path'] = script_path
-        return ['script_path: %s' % script_path]
+        return script_path
 
 
     def submit_array_job(self):
@@ -169,7 +169,7 @@ class HaSGE(object):
                                                                                    start_time, \
                                                                                    self.parms['script_path'])
         result = os.popen(command)
-        return ['qsub: %s' % command] + result.readlines()
+        return result.read().strip()
 
 
     def test_connection(self):
@@ -201,8 +201,9 @@ class HaSGE(object):
         Any information are to be provided in HaFarmParms class kept in self.parms
         variable.
         """
-        result  = self.create_job_script()
-        result += self.submit_array_job()
+        result = {}
+        result['create_job_script'] = self.create_job_script()
+        result['submit_array_job']  = self.submit_array_job()
         return result
 
     def get_queue_list(self):
