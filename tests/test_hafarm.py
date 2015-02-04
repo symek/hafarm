@@ -97,7 +97,7 @@ class TestHaFarm(unittest.TestCase):
         result   = ha_farm.copy_scene_file()
         # Check:
         self.assertTrue(os.path.isfile(new_file))
-        self.assertEqual(result, ['copy_scene_file', new_file])
+        self.assertEqual(result, new_file)
 
 
     def test_generate_unique_job_name(self):
