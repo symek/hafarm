@@ -126,17 +126,34 @@ class HaFarm(HaSGE):
     def copy_scene_file(self, scene_file=None):
         """Makes a copy of a scene file.
         """
-        # TODO: some error checking might be useful here...
-        from shutil import copy
+        import shutil
+
         if not scene_file:
             scene_file = self.parms['scene_file']
+
+        # TODO: Currenty scene file is copied into job script directory
+        # We might want to customize it, along with the whole idea of
+        # coping scene. 
         filename, ext  = os.path.splitext(scene_file)
         path           = os.path.expandvars(self.parms['script_path'])
         new_scene_file = os.path.join(path, self.parms['job_name']) + ext
         self.parms['scene_file'] = new_scene_file
-        copy(scene_file, new_scene_file)
-        self.logger.info('Scene file copied to: %s' % (new_scene_file))
-        return new_scene_file
+
+        # We do either file copy or link copy. The latter one is less expensive
+        # but less safe also, as we do use render cache as backup history from
+        # time to time... :/
+        try:
+            if os.path.islink(scene_file):
+                linkto = os.readlink(scene_file)
+                os.symlink(linkto, new_scene_file)
+            else:
+                shutil.copy2(scene_file, new_scene_file)
+        except (IOError, os.error), why:
+            self.logger.debug('%s: %s' % (new_scene_file, why))
+            new_scene_file = None
+
+
+        return {'copy_scene_file': new_scene_file}
 
     def render(self):
         """Make defaults steps, scene copy and call parent specific command.
