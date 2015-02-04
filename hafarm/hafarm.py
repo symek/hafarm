@@ -150,10 +150,19 @@ class HaFarm(HaSGE):
         result     = super(HaFarm, self).render()
         post_result= self.post_schedule()
 
-        # Logger call:
+        # Info logger call:
         for item in result:
             self.logger.info("%s: %s" % (item, result[item]))
         
+        # Debugging. Should const.DEBUG overwrite HAFARM_DEBUG?
+        # Should we select levels? 
+        try: 
+            debug = int(os.getenv("HAFARM_DEBUG"))
+            if debug >= 1 and const.DEBUG != 0:
+                self.logger.debug(self.parms)
+        except:
+                self.logger.debug("No HAFARM_DEBUG env. var.: %s (should be an integer)" % os.getenv("HAFARM_DEBUG"))
+
         return result
 
     def get_queue_list(self):

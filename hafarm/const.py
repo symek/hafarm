@@ -12,3 +12,4 @@ PROXY_POSTFIX = "proxy"
 TILES_POSTFIX = 'tiles'
 MAX_CORES      = '@MAX_CORES/>'
 IINFO          = '$HFS/bin/iinfo -b -i '
+DEBUG          = 1
