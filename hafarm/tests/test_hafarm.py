@@ -86,18 +86,32 @@ class TestHaFarm(unittest.TestCase):
         ha_farm.parms['job_name']    = scene_file
         ha_farm.parms['scene_file']  =  os.path.join(tmp_path, 'source_dir/%s.test' % ha_farm.parms['job_name'])
 
-        # Create fake scene_file:
+        # Create fake scene_file and link:
         with open(ha_farm.parms['scene_file'], 'w') as file:
             file.write('test')
             file.close()
+            symlink =  ha_farm.parms['scene_file'] + '.link'
+            os.symlink(ha_farm.parms['scene_file'], symlink)
 
         # We should expect something like:
         new_file = os.path.join(tmp_path, '%s.test' % ha_farm.parms['job_name'])
-        # Execute:
-        result   = ha_farm.copy_scene_file()
+        new_link = os.path.join(tmp_path, '%s.link' % ha_farm.parms['job_name'])
+
         # Check:
+        result   = ha_farm.copy_scene_file()
         self.assertTrue(os.path.isfile(new_file))
-        self.assertEqual(result, new_file)
+        self.assertEqual(result, {"copy_scene_file": new_file})
+
+        # Copy symlink via arg overwrite:
+        result = ha_farm.copy_scene_file(symlink)
+        self.assertTrue(os.path.islink(new_link))
+        self.assertEqual(result, {"copy_scene_file": new_link})
+
+
+        # Finally we should see some errors too:
+        ha_farm.parms['scene_file'] += ".fake"
+        self.assertEqual(ha_farm.copy_scene_file(), {'copy_scene_file': None})
+        
 
 
     def test_generate_unique_job_name(self):
