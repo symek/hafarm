@@ -12,6 +12,17 @@ class HaSGE(object):
     def create_job_script(self):
         """Creates a script sutable for SGE to run.
         """
+        # TODO: For now script file is created according to hardcoded logic:
+        # user script_path + job_name + .'job' extension
+        # This could  be extented: 
+        #   - for customization/pipeline friendines we could have specialized  parm for a filename.
+        #     (not used if left empty)
+        #   - for safty reason / to avoid filename clashes we could check the location (or use private one) 
+        # (although it's never good to make class 'too smart'... 
+        # isn't it an user responsibility to make job_name unigue and safe)...
+
+        # TODO: HaFarmParm should have (optinal) variables' expansion built it. 
+        # Basically plugin class should blindly read in data, like a calf sucking milk (no thinking).
         path        = os.path.expandvars(self.parms['script_path'])
         script_path = os.path.join(path, self.parms['job_name'] + '.job')
         time_parm   = (int(self.parms['start_frame']), int(self.parms['end_frame']), int(self.parms['step_frame']))
@@ -86,16 +97,26 @@ class HaSGE(object):
             file.write(send_mail)
         file.close()
 
-        # As a convention we return a list with function name and return value:
-        self.parms['script_path'] = script_path
-        return script_path
+        # self.parms['script_path'] = script_path # FIXME: (look for other places hafarmparms are changed silently.)
+        # This was philosophically wrong. Some deep small obscure function shouldn't change our only
+        # data repository silently (I'm writing it down here to remeber next time.) 
+        # We should have eihter simple logic to construct job script or dedicated function() for it. 
+
+
+        # As a convention we return a dict with function's proper value or None
+        return {'create_job_script': script_path }
 
 
     def submit_array_job(self):
         """Submit an array job based on already provided job's parameters in HAFarmParms.
         """
+        import subprocess
         # self.set_flags()
 
+        # We repeat work here temporarly for extra clearnless(see above):
+        path        = os.path.expandvars(self.parms['script_path'])
+        script_path = os.path.join(path, self.parms['job_name'] + '.job')
+       
         # Job is send in 'hold' state:
         job_on_hold   = '-h' if  self.parms['job_on_hold'] else ""
         # Request license 
@@ -148,28 +169,25 @@ class HaSGE(object):
         if self.parms['group'] and self.parms['group'] != 'allhosts': 
             queue += "@@%s" % self.parms['group']
 
-        # Add target to job name:
-        # job_name = "_".join([self.parms['job_name'],  
+        # This should be clean uped. Either all with flag names or none. 
+        arguments = ['qsub']
+        arguments += [job_on_hold, "-N %s" % self.parms['job_name'],
+                     '-V', rerun_on_error,
+                     '-o %s' % os.path.expandvars(self.parms['log_path']),
+                     '-e %s' % os.path.expandvars(self.parms['log_path']),
+                     queue,
+                    '-ac OUTPUT_PICTURE=%s' % self.parms['output_picture'],
+                    '-p %s' % self.parms['priority'], req_resources, check_suspend,
+                    email_list, email_opt, hold_jid, start_time, script_path]
 
-        # FIXME: This is drmaa free temporary replacement:
-        command = 'qsub %s -N %s -V %s %s -o %s -e %s %s -ac OUTPUT_PICTURE=%s -p %s %s %s %s %s %s %s %s' % (job_on_hold, \
-                                                                                   self.parms['job_name'],
-                                                                                   max_running_tasks, \
-                                                                                   rerun_on_error, \
-                                                                                   os.path.expandvars(self.parms['log_path']), \
-                                                                                   os.path.expandvars(self.parms['log_path']), \
-                                                                                   queue, \
-                                                                                   self.parms['output_picture'], \
-                                                                                   self.parms['priority'], \
-                                                                                   req_resources, \
-                                                                                   check_suspend, \
-                                                                                   email_list, \
-                                                                                   email_opt, \
-                                                                                   hold_jid, \
-                                                                                   start_time, \
-                                                                                   self.parms['script_path'])
-        result = os.popen(command)
-        return result.read().strip()
+        print arguments
+
+        try:
+            result = subprocess.check_call(arguments, stdout=subprocess.PIPE)
+            return result.read().strip()
+        except subprocess.CalledProcessError, why:
+            return why
+
 
 
     def test_connection(self):
