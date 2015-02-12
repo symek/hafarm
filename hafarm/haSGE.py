@@ -8,8 +8,10 @@ import const
 class HaSGE(object):
     def __init__(self):
         self.session = None
+        # NOTE: This is place to pre-config qsub executable for example:
+        self.qsub_command = []
 
-    def create_job_script(self):
+    def _create_job_script(self):
         """Creates a script sutable for SGE to run.
         """
         # TODO: For now script file is created according to hardcoded logic:
@@ -104,14 +106,12 @@ class HaSGE(object):
 
 
         # As a convention we return a dict with function's proper value or None
-        return {'create_job_script': script_path }
+        return script_path
 
 
-    def submit_array_job(self):
+    def _create_submit_command(self):
         """Submit an array job based on already provided job's parameters in HAFarmParms.
         """
-        import subprocess
-        # self.set_flags()
 
         # We repeat work here temporarly for extra clearnless(see above):
         path        = os.path.expandvars(self.parms['script_path'])
@@ -121,18 +121,18 @@ class HaSGE(object):
         job_on_hold   = '-h' if  self.parms['job_on_hold'] else ""
         # Request license 
         # TODO: Add other resources
-        req_resources = '-hard -l procslots=%s ' % self.parms['slots']
-        req_resources += '-hard -l %s' % self.parms['req_license'] if self.parms['req_license'] else ""
+        req_resources = ['-hard', '-l', 'procslots=%s' % self.parms['slots']]
+        req_resources +=['-hard', '-l %s' % self.parms['req_license']] if self.parms['req_license'] else []
 
         # Jobs' interdependency:
-        hold_jid = '-hold_jid %s ' % ','.join(self.parms['hold_jid']) if self.parms['hold_jid'] else ""
+        hold_jid = ['-hold_jid', '%s' % ','.join(self.parms['hold_jid'])] if self.parms['hold_jid'] else []
 
         # Max running tasks:
         # FIXME: make consistent access to hafarm's defaults. 
         # Now this would require import of hafarm.py
         max_running_tasks = ""
         if self.parms['max_running_tasks'] != 1000:
-            max_running_tasks = '-tc %s' % self.parms['max_running_tasks']
+            max_running_tasks = ['-tc', self.parms['max_running_tasks']]
 
         # This will put Nuke for example in queue waiting for free slots,
         # but we want it to be selectable based on chosen queue: nuke queue: don't wait
@@ -180,39 +180,40 @@ class HaSGE(object):
                     '-p %s' % self.parms['priority'], req_resources, check_suspend,
                     email_list, email_opt, hold_jid, start_time, script_path]
 
-        print arguments
+        # FIXME: Temporary cleanup: 
+        cc = []
+        for word in arguments:
+            if " " in word:
+                for subword in word.split():
+                    if subword != " ":
+                        cc.append(subword)
+            elif isinstance(word, type([])):
+                for subitem in word:
+                    if len(subitem) > 1:
+                        cc.append(str(subitem))
+            else:
+                if word != "":
+                    cc.append(str(word))
+                 
+        self.qsub_command = cc 
+        return cc
 
+    def _submit_job(self, command=[]):
+        '''Last part of scheduling process by calling backstaged render manager.
+        '''
+        import subprocess
+
+        if not command: 
+            command = self.qsub_command
+
+        # TODO: What we should do with output?
         try:
-            result = subprocess.check_call(arguments, stdout=subprocess.PIPE)
-            return result.read().strip()
+            result = subprocess.check_call(command, stdout=subprocess.PIPE)
+            return result
         except subprocess.CalledProcessError, why:
             return why
 
 
-
-    def test_connection(self):
-        """Create a session, show that each session has an id,
-        use session id to disconnect, then reconnect. Then exit.
-        """
-        self.session = drmaa.Session()
-        self.session.initialize()
-        print 'A session was started successfully'
-        response = self.session.contact
-        print 'session contact returns: ' + response
-        self.session.exit()
-        print 'Exited from session'
-
-        self.session.initialize(response)
-        print 'Session was restarted successfullly'
-        self.session.exit()
-        self.session = None
-
-    def end_connection(self):
-        if not self.session:
-            self.session = drmaa.Session()
-            print self.session.contact
-        self.session.exit()
-        self.session = None
 
     def render(self):
         """ This will be called by any derived class, to submit the jobs to farm. 
@@ -220,8 +221,9 @@ class HaSGE(object):
         variable.
         """
         result = {}
-        result['create_job_script'] = self.create_job_script()
-        result['submit_array_job']  = self.submit_array_job()
+        result['_create_job_script']      = self._create_job_script()
+        result['_create_submit_command']  = self._create_submit_command()
+        result['_submit_job']             = self._submit_job()
         return result
 
     def get_queue_list(self):
@@ -235,58 +237,3 @@ class HaSGE(object):
         NOTE: API candidate.."""
         #TODO: get this from sge with qconf -shgrpl
         return ('allhosts', 'grafiki', 'renders')
-
-
-
-
-    # Who needs a case statement when you have dictionaries?
-# SGEstatus = {
-#     drmaa.JobState.UNDETERMINED: 'process status cannot be determined',
-#     drmaa.JobState.QUEUED_ACTIVE: 'job is queued and active',
-#     drmaa.JobState.SYSTEM_ON_HOLD: 'job is queued and in system hold',
-#     drmaa.JobState.USER_ON_HOLD: 'job is queued and in user hold',
-#     drmaa.JobState.USER_SYSTEM_ON_HOLD: 'job is queued and in user and system hold',
-#     drmaa.JobState.RUNNING: 'job is running',
-#     drmaa.JobState.SYSTEM_SUSPENDED: 'job is system suspended',
-#     drmaa.JobState.USER_SUSPENDED: 'job is user suspended',
-#     drmaa.JobState.DONE: 'job finished normally',
-#     drmaa.JobState.FAILED: 'job finished, but failed',
-#     }
-
-
-
-  # def set_flags(self):
-  #       """Creates a dictionary of defualt flags for SGE. Flags are those job parms,
-  #       which are suspected to be not comapatible with others render managers' settings."""
-  #       self.flags = {}
-  #       self.flags['b'] = 'y'  # handle command as binary 
-  #       self.flags['V'] = True # export all environment variables
-  #       self.flags['h'] = True # place user hold on job
-  #       # TODO: logs' names and job scripts names should be configureable:
-  #       self.OUTPUT_PICTURE = ""
-
-
-        # FIXME: Bellow doesn't work, the job is submited but it's fails to execute
-        # Basic usage of drmaa works as excepted. Also this script work when sent from
-        # comman line ?
-
-        # if not self.session:
-        #     self.session = drmaa.Session()
-
-        # self.session.initialize()
-        # response = self.session.contact
-        # print 'Session contact returns: ' + response
-        # jobTemplate = self.session.createJobTemplate()
-        # jobTemplate.remoteCommand =  self.parms['script_path']
-        # jobTemplate.outputPath    = ":" + os.path.expandvars(self.parms['log_path'])
-        # jobTemplate.errorPath     = ":" + os.path.expandvars(self.parms['log_path'])
-        # jobTemplate.args          = []
-        # jobTemplate.joinFiles     = False
-        # jobTemplate.nativeSpecification = '-N %s -q %s -V' % (self.parms['job_name'], self.parms['queue'])
-        # jobTemplate.nativeSpecification = '-V '
-        # jobid = self.session.runBulkJobs(jobTemplate, int(self.parms['start_frame']), 
-        #                                     int(self.parms['end_frame']) , int(self.parms['step_frame']))
-
-        # self.session.deleteJobTemplate(jobTemplate)
-        # self.session.exit()
-        # self.session = None
