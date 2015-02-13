@@ -28,35 +28,6 @@ class HaSGE(object):
         path        = os.path.expandvars(self.parms['script_path'])
         script_path = os.path.join(path, self.parms['job_name'] + '.job')
         time_parm   = (int(self.parms['start_frame']), int(self.parms['end_frame']), int(self.parms['step_frame']))
-        file = open(script_path, 'w')
-
-        # FIXME: Change hafarm specific variables for SGE once. Currently we do it manually. 
-        self.parms['scene_file'] = self.parms['scene_file'].replace(const.TASK_ID, '$SGE_TASK_ID')
-
-        # This is standard:
-        file.write('#!/bin/bash\n')
-        file.write('#$ -t %s-%s:%s\n' %  time_parm) 
-
-        # We try to use single script for all chuncks, so we need some expressions:
-        # TODO: this should work for multi-frame rendering like Nuke, Hscript, Maya.
-        # Not sure about Mantra though. 
-        file.write('LAST_FRAME=%s\n' % self.parms['end_frame'])
-        file.write('RANGE_FRAME=$[${SGE_TASK_ID}+%d]\n' % int(self.parms['step_frame']))
-        file.write("if ((${RANGE_FRAME}>${LAST_FRAME})); then RANGE_FRAME=${LAST_FRAME}; fi\n")
-
-        # Some standard info about current render:
-        # TODO extend it with more system debuging info (current disc space, free RAM, CPU load etc.)
-        file.write("echo Render start: `date`\n")
-        file.write("echo Machine name: ${HOSTNAME}\n")
-        file.write("echo User    name: ${USER}\n")
-        file.write("echo Slots:        $NSLOTS\n")
-        file.write("echo Processors  : `nproc`\n")
-        file.write("NPROC=`nproc`\n")
-        # Determine # of cores and set max for rendering if required (that is slots = 0)
-        file.write("echo Memory stats: `egrep 'Mem|Cache|Swap' /proc/meminfo`\n")
-        file.write("echo Scene file  : %s\n" % self.parms['scene_file'])
-        #file.write("echo CPU    stats: `mpstat`\n")
-
 
         # Normally a host application (Hou, Maya, Nuke) declares parms['frame_range_arg'] like:
         # ['-arbirary_flag %s -another -%s ...', key, key, ...], so render manager (which ever it is)
@@ -78,26 +49,56 @@ class HaSGE(object):
         self.parms['command_arg'] += [self.parms['frame_range_arg'][0] % tuple(sge_frames_variables)]
         command_arg = " ".join(arg for arg in self.parms['command_arg'])
 
-        # Finally render command:
-        file.write('%s %s %s\n' \
-            % (self.parms['command'], command_arg, self.parms['scene_file']))
-
-        file.write("echo Render ends: `date`\n")
-        file.write("echo Render target: %s\n" % self.parms['output_picture'])
-        file.write("echo Command was: %s %s %s\n" % (self.parms['command'], self.parms['command_arg'], self.parms['scene_file']))
-        #file.write("echo Current mem: `egrep 'Mem|Cache|Swap' /proc/meminfo`\n")
-        #file.write("echo CPU   stats: `mpstat`\n")
-
         # Mailing support:
-        if self.parms['email_stdout']:
-            if not self.parms['email_list']:
-                self.parms['email_list'] = [utils.get_email_address()]
-            stdout = 'STDOUT=$(cd `dirname "${BASH_SOURCE[0]}"` && pwd)/`basename "${BASH_SOURCE[0]}"`;\n'
-            topic = 'DEBUGING FOR: ' + self.parms['job_name']
-            send_mail = 'echo `cat $STDOUT` | mail -s "%s" "%s" \n' % (topic, self.parms['email_list'][0])
-            file.write(stdout)
-            file.write(send_mail)
-        file.close()
+        # FIXME: This doesn't work atm....
+        # if self.parms['email_stdout']:
+        #     if not self.parms['email_list']:
+        #         self.parms['email_list'] = [utils.get_email_address()]
+        #     stdout = 'STDOUT=$(cd `dirname "${BASH_SOURCE[0]}"` && pwd)/`basename "${BASH_SOURCE[0]}"`;\n'
+        #     topic = 'DEBUGING FOR: ' + self.parms['job_name']
+        #     send_mail = 'echo `cat $STDOUT` | mail -s "%s" "%s" \n' % (topic, self.parms['email_list'][0])
+                
+        # FIXME: Change hafarm specific variables for SGE once. Currently we do it manually. 
+        scene_file = self.parms['scene_file'].replace(const.TASK_ID, '$SGE_TASK_ID')
+
+        with open(script_path, 'w') as file:
+
+            # This is standard:
+            file.write('#!/bin/bash\n')
+            file.write('#$ -t %s-%s:%s\n' %  time_parm) 
+
+            # We try to use single script for all chuncks, so we need some expressions:
+            # TODO: this should work for multi-frame rendering like Nuke, Hscript, Maya.
+            # Not sure about Mantra though. 
+            file.write('LAST_FRAME=%s\n' % self.parms['end_frame'])
+            file.write('RANGE_FRAME=$[${SGE_TASK_ID}+%d]\n' % int(self.parms['step_frame']))
+            file.write("if ((${RANGE_FRAME}>${LAST_FRAME})); then RANGE_FRAME=${LAST_FRAME}; fi\n")
+
+            # Some standard info about current render:
+            # TODO extend it with more system debuging info (current disc space, free RAM, CPU load etc.)
+            file.write("echo Render start: `date`\n")
+            file.write("echo Machine name: ${HOSTNAME}\n")
+            file.write("echo User    name: ${USER}\n")
+            file.write("echo Slots:        $NSLOTS\n")
+            file.write("echo Processors  : `nproc`\n")
+            file.write("NPROC=`nproc`\n")
+            # Determine # of cores and set max for rendering if required (that is slots = 0)
+            file.write("echo Memory stats: `egrep 'Mem|Cache|Swap' /proc/meminfo`\n")
+            file.write("echo Scene file  : %s\n" % self.parms['scene_file'])
+            #file.write("echo CPU    stats: `mpstat`\n")
+
+            # Finally render command:
+            # FIXME: this isn't generic. The only moment we know how the command should look like 
+            # is host application class. 
+            file.write('%s %s %s\n' % (self.parms['command'], command_arg, scene_file))
+
+            file.write("echo Render ends: `date`\n")
+            file.write("echo Render target: %s\n" % self.parms['output_picture'])
+            file.write("echo Command was: %s %s %s\n" % (self.parms['command'], self.parms['command_arg'], scene_file))
+            #file.write("echo Current mem: `egrep 'Mem|Cache|Swap' /proc/meminfo`\n")
+            #file.write("echo CPU   stats: `mpstat`\n")
+            # file.write(stdout) FIXME: Mailig disabaled atm.
+            # file.write(send_mail)
 
         # self.parms['script_path'] = script_path # FIXME: (look for other places hafarmparms are changed silently.)
         # This was philosophically wrong. Some deep small obscure function shouldn't change our only
