@@ -123,7 +123,7 @@ class HaSGE(object):
         # Request license 
         # TODO: Add other resources
         req_resources = ['-hard', '-l', 'procslots=%s' % self.parms['slots']]
-        req_resources +=['-hard', '-l %s' % self.parms['req_license']] if self.parms['req_license'] else []
+        req_resources +=['-hard', '-l', '%s' % self.parms['req_license'] if self.parms['req_license'] else ""]
 
         # Jobs' interdependency:
         hold_jid = ['-hold_jid', '%s' % ','.join(self.parms['hold_jid'])] if self.parms['hold_jid'] else []
