@@ -155,7 +155,7 @@ class HaSGE(object):
         if self.parms['rerun_on_error']: rerun_on_error = '-r yes'
  
         # If we want to avoid temporarly suspended machines
-        check_suspend = '-ckpt check_suspend' if not self.parms['ignore_check'] else ""
+        check_suspend = ['-ckpt', 'check_suspend'] if not self.parms['ignore_check'] else []
 
         # Email list and triggers options:
         email_list = " "
