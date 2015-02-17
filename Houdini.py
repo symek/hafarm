@@ -131,7 +131,7 @@ class HbatchFarm(hafarm.HaFarm):
         command = self.parms['command_arg']
 
         # Threads:
-        command += ['-j %s' % self.parms['slots']]
+        #command += ['-j %s' % self.parms['slots']]
 
         # Add targets:
         if self.parms['target_list']:
