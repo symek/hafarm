@@ -3,9 +3,10 @@
 import os
 import utils
 import const
+from manager import RenderManager
 
 
-class HaSGE(object):
+class Sungrid(RenderManager):
     def __init__(self):
         self.session = None
         # NOTE: This is place to pre-config qsub executable for example:
@@ -238,3 +239,17 @@ class HaSGE(object):
         NOTE: API candidate.."""
         #TODO: get this from sge with qconf -shgrpl
         return ('allhosts', 'grafiki', 'renders')
+
+    def get_host_list(self):
+        """Get list of defined groups from manager. 
+        NOTE: API candidate.."""
+        #TODO: get this from sge with qconf -shgrpl
+        return []
+
+    def test_connection(self):
+        return
+
+    def register_manager(self):
+        # TODO: We should test 
+        return True
+

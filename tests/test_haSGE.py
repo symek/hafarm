@@ -2,7 +2,7 @@ import unittest
 import sys, os, tempfile, stat
 sys.path.append("../")
 import const
-from haSGE import HaSGE
+from managers.sungrid import Sungrid
 from parms import HaFarmParms, hafarm_defaults
 
 _create_job_script_output =\
@@ -39,7 +39,7 @@ class TestHaSGE(unittest.TestCase):
         self.job_name = 'haSGE_unittest'
         self.path = tempfile.gettempdir()
         self.expected_path = os.path.join(self.path, self.job_name + '.job' )
-        self.sge = HaSGE()
+        self.sge = Sungrid()
         # HaSge doesn't have default params!!!
         # This is why it's so good to write test cases, good chance to find own bugs
         # and stupid mistakes.... ouch!

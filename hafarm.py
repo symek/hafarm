@@ -2,7 +2,8 @@ import os, sys
 import ha
 
 # TODO: plugin import needed.
-from haSGE import HaSGE
+sys.path.append("./managers")
+from sungrid import Sungrid
 from logger import Logger
 from parms import HaFarmParms
 
@@ -22,7 +23,7 @@ class HaFarm(object):
         self.logger  = Logger(self.__class__.__name__)
 
         # TODO: this is place for dynamic change of backend:
-        self.manager = HaSGE()
+        self.manager = Sungrid()
         self.manager.parms = self.parms
 
 
