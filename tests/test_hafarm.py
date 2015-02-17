@@ -3,7 +3,9 @@ import sys
 sys.path.append("../")
 import hafarm
 import const
-from hafarm import HaFarmParms, hafarm_defaults, HaFarm, BatchFarm
+from hafarm import  HaFarm, BatchFarm
+from parms import HaFarmParms, hafarm_defaults
+
 join_tiles_output = """ /tmp/tiles/test.%04d__TILE__0.exr /tmp/tiles/test.%04d__TILE__1.exr \
 --over /tmp/tiles/test.%04d__TILE__2.exr --over /tmp/tiles/test.%04d__TILE__3.exr \
 --over -o /tmp/test.%04d.exr --frames 1-3 """

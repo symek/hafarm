@@ -3,7 +3,7 @@ import sys, os, tempfile, stat
 sys.path.append("../")
 import const
 from haSGE import HaSGE
-from hafarm import HaFarmParms, hafarm_defaults
+from parms import HaFarmParms, hafarm_defaults
 
 _create_job_script_output =\
 """#!/bin/bash
