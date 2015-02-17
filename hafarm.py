@@ -103,7 +103,7 @@ class FrameRangeParm(HaFarmParms):
 
 
 
-class HaFarm(HaSGE):
+class HaFarm(object):
     """Parent class to be inherited by host specific classes (Houdini, Maya, Nuke etc).
     It's a child of renderfarm manager class (currently SGE, but maybe any thing else in
     a future: OpenLava/whatever. Neither this class nor its children should notice if
@@ -111,8 +111,12 @@ class HaFarm(HaSGE):
     """
     def __init__(self):
         super(HaFarm, self).__init__()
-        self.parms = HaFarmParms(initilize=True)
-        self.logger = Logger(self.__class__.__name__)
+        self.parms   = HaFarmParms(initilize=True)
+        self.logger  = Logger(self.__class__.__name__)
+
+        # TODO: this is place for dynamic change of backend:
+        self.manager = HaSGE()
+        self.manager.parms = self.parms
 
 
     def generate_unique_job_name(self, name):
@@ -164,12 +168,19 @@ class HaFarm(HaSGE):
 
         # This should stay renderfarm agnostic call.
         pre_result = self.pre_schedule()
-        result     = super(HaFarm, self).render()
+        result     = self.manager.render()
         post_result= self.post_schedule()
 
         # Info logger call:
         for item in result:
-            self.logger.info("%s: %s" % (item, result[item]))
+            if isinstance(result[item], type([])):
+                output = " ".join(result[item])
+            elif isinstance(result[item], type("")):
+                output = result[item]
+            else:
+                output = result[item]
+
+            self.logger.info("%s: %s" % (item, output))
         
         # Debugging. Should const.DEBUG overwrite HAFARM_DEBUG?
         # Should we select levels? 
@@ -185,7 +196,7 @@ class HaFarm(HaSGE):
     def get_queue_list(self):
         """Returns queue list as provided by render manager.
         """
-        return super(HaFarm, self).get_queue_list()
+        return self.manager.get_queue_list()
 
     def pre_schedule(self):
         """This should be provided by derived classes to perform any application specific actions before the submit.
