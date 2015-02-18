@@ -24,7 +24,7 @@ class HaFarm(object):
     a future: OpenLava/whatever. Neither this class nor its children should notice if
     underlying manager will change.
     """
-    def __init__(self, job_name=None, parent_job_name=[], queue=None, backend = 'Sungrid', backend_version = None):
+    def __init__(self, job_name='', parent_job_name=[], queue='', backend = 'Sungrid', backend_version = None):
         super(HaFarm, self).__init__()
         self.render_backends = {}
         self.parms   = HaFarmParms(initilize=True)
