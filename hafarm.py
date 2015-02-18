@@ -1,9 +1,16 @@
 import os, sys
 import ha
 
-# TODO: plugin import needed.
-sys.path.append("./managers")
-from sungrid import Sungrid
+# TODO: We either do proper Python's  eggs (see: http://docs.pylonsproject.org/projects/pylons-webframework/\
+# en/latest/advanced_pylons/entry_points_and_plugins.html) or make something like: managers/__init__.py 
+# will search through  HAFARM_PLUGINS path (specified via env var.) for all classes derived 
+# from RenderManager and add them to its subspace managers.*, so below import will bring them here. 
+# What if some plugin requeres custom module (like qube.py)? This should be catched
+# inside managers module (maybe managers should even call  manager.test_connection() to verify
+# that the backend under considertion works at all?)
+import managers
+
+from manager import RenderManager, DummyManager
 from logger import Logger
 from parms import HaFarmParms
 
@@ -17,15 +24,41 @@ class HaFarm(object):
     a future: OpenLava/whatever. Neither this class nor its children should notice if
     underlying manager will change.
     """
-    def __init__(self):
+    def __init__(self, job_name=None, parent_job_name=[], queue=None, backend = 'Sungrid', backend_version = None):
         super(HaFarm, self).__init__()
+        self.render_backends = {}
         self.parms   = HaFarmParms(initilize=True)
-        self.logger  = Logger(self.__class__.__name__)
+        self.logger  = Logger(self.__class__.__name__)  
+        self.manager = DummyManager() # This is dummy object usefil for debugging.
 
-        # TODO: this is place for dynamic change of backend:
-        self.manager = Sungrid()
+        # Find some less dummy render manager:
+        if not self.install_render_backend(backend, backend_version):
+            self.logger.info("Can't find any backend. Using Dummy()")
+
+        # Attach parms right to manger
+        # TODO: Should be change this behavior? 
         self.manager.parms = self.parms
 
+    def install_render_backend(self, backend, version):
+        """Find RenderManager subclasses and attach it to self.manager as a rendering backend.
+        """
+        for plugin in RenderManager.__subclasses__(): 
+            self.render_backends[plugin.__name__] = plugin
+        self.logger.debug('Registered backends: %s ' % self.render_backends)
+
+        # If reqested backend was found in correct version make it the manager:
+        if not backend in self.render_backends.keys():
+            return False
+        else:
+            if version:
+                if self.render_backends[backend].version == version:
+                    self.manager = self.render_backends[backend]()
+                else:
+                    # No backend with requested version found.
+                    return False
+            else:
+                self.manager = self.render_backends[backend]()
+        return True
 
     def generate_unique_job_name(self, name):
         """Returns unique name for a job. 'Name' is usually a scene file. 

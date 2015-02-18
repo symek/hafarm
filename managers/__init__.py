@@ -1,7 +1,2 @@
-import glob
-
-print globals()
-sources = glob.glob("./*.py")
-print sources
-
+# Place for small plugin archtecture...
 from sungrid import *

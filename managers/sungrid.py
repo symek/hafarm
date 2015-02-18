@@ -1,16 +1,31 @@
 # No dramaa atm
 # import drmaa
-import os
-import utils
-import const
-from manager import RenderManager
+import os, sys
+import ha.hafarm
+from ha.hafarm import utils
+from ha.hafarm import const
+from ha.hafarm.manager import RenderManager 
+#from manager   import RenderManager
 
+__plugin__version__ = 0.1
 
 class Sungrid(RenderManager):
     def __init__(self):
         self.session = None
         # NOTE: This is place to pre-config qsub executable for example:
         self.qsub_command = []
+
+    @property
+    def register_manager(self):
+        # TODO: How we could test here
+        # if this is proper implementation of RenderManager?
+        # calling test_connection()? or running attached unittest?
+        # Do we need this at all?
+        return True
+
+    @property
+    def version(self):
+        return __plugin__version__ 
 
     def _create_job_script(self):
         """Creates a script sutable for SGE to run.
@@ -248,8 +263,4 @@ class Sungrid(RenderManager):
 
     def test_connection(self):
         return
-
-    def register_manager(self):
-        # TODO: We should test 
-        return True
-
+        
