@@ -1,9 +1,28 @@
 import unittest
 import sys, os, tempfile, stat
-sys.path.append("../")
-import const
-from managers.sungrid import Sungrid
-from parms import HaFarmParms, hafarm_defaults
+
+# FIXME: Just Can't handle it. Studio installed version breaks tests. 
+# Tests with relative paths break while running cases because tested 
+# objects import our modules and expects proper paths...
+
+# Remove studio-wide installation:
+try:
+    index = sys.path.index("/STUDIO/studio-packages")
+    sys.path.pop(index)
+except:
+    pass
+
+# make ../../ha/hafarm visible for tests:
+sys.path.insert(0, os.path.join(os.getcwd(), "../../.."))
+
+from ha import hafarm
+from ha.hafarm import const
+from ha.hafarm import  HaFarm
+from ha.hafarm.managers import Sungrid
+
+from ha.hafarm import HaFarmParms
+from ha.hafarm.const import hafarm_defaults
+from ha.hafarm.Batch import BatchFarm
 
 _create_job_script_output =\
 """#!/bin/bash
@@ -105,4 +124,9 @@ class TestHaSGE(unittest.TestCase):
     #     assert False # TODO: implement your test here
 
 if __name__ == '__main__':
-    unittest.main()
+    #unittest.main()
+    # FIXME: why not just unittest.main()
+    for test in unittest.TestCase.__subclasses__()[1:]:
+        case = unittest.TestLoader().loadTestsFromTestCase(test)
+        unittest.TextTestRunner(verbosity=3).run(case)
+

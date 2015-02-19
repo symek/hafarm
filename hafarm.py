@@ -25,7 +25,7 @@ class HaFarm(object):
     underlying manager will change.
     """
     def __init__(self, job_name='', parent_job_name=[], queue='', backend = 'Sungrid', backend_version = None):
-        super(HaFarm, self).__init__()
+        # super(HaFarm, self).__init__()
         self.render_backends = {}
         self.parms   = HaFarmParms(initilize=True)
         self.logger  = Logger(self.__class__.__name__)  

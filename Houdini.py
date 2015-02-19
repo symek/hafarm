@@ -10,7 +10,7 @@ import hafarm
 import ha
 from ha.hafarm import utils
 from ha.hafarm import const
-#from ha.hafarm import Batch
+from ha.hafarm import Batch
 from ha.path import padding, find_sequence
 
 reload(utils)
@@ -288,7 +288,7 @@ def mantra_render_with_tiles(node, rop, hscript_farm):
     
     # Tile merging job:
     merging_job_name = hscript_farm.parms['job_name'] + '_merge'
-    merge_job = hafarm.BatchFarm(job_name = merging_job_name, 
+    merge_job = Batch.BatchFarm(job_name = merging_job_name, 
                                   parent_job_name = tile_job_ids, 
                                   queue = str(node.parm('queue').eval()))
 
@@ -404,7 +404,7 @@ def render_pressed(node):
 
                 # Proceed with debuging:
                 if node.parm("debug_images").eval():
-                    debug_render  = hafarm.BatchFarm(job_name = hscript_farm.parms['job_name'] + "_debug", 
+                    debug_render  = Batch.BatchFarm(job_name = hscript_farm.parms['job_name'] + "_debug", 
                                                      queue    = str(node.parm('queue').eval()),
                                                      parent_job_name = [mantra_farm.parms['job_name']])
                     debug_render.debug_images(mantra_farm.parms['output_picture'])
@@ -412,7 +412,7 @@ def render_pressed(node):
 
                 # Make a movie from proxy frames:
                 if node.parm("make_proxy").eval() and node.parm("make_movie").eval():
-                    movie  = hafarm.BatchFarm(job_name = hscript_farm.parms['job_name'] + "_mp4", 
+                    movie  = Batch.BatchFarm(job_name = hscript_farm.parms['job_name'] + "_mp4", 
                                               queue    = str(node.parm('queue').eval()),
                                               parent_job_name = [mantra_farm.parms['job_name']])
                     movie.make_movie(mantra_farm.parms['output_picture'])

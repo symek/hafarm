@@ -1,10 +1,27 @@
 import unittest
-import sys
-sys.path.append("../")
-import hafarm
-import const
-from hafarm import  HaFarm, BatchFarm
-from parms import HaFarmParms, hafarm_defaults
+import sys, os
+
+# FIXME: Just Can't handle it. Studio installed version breaks tests. 
+# Tests with relative paths break while running cases because tested 
+# objects import our modules and expects proper paths...
+
+# Remove studio-wide installation:
+try:
+    index = sys.path.index("/STUDIO/studio-packages")
+    sys.path.pop(index)
+except:
+    pass
+
+# make ../../ha/hafarm visible for tests:
+sys.path.insert(0, os.path.join(os.getcwd(), "../../.."))
+
+from ha import hafarm
+from ha.hafarm import const
+from ha.hafarm import  HaFarm
+
+from ha.hafarm import HaFarmParms
+from ha.hafarm.const import hafarm_defaults
+from ha.hafarm.Batch import BatchFarm
 
 join_tiles_output = """ /tmp/tiles/test.%04d__TILE__0.exr /tmp/tiles/test.%04d__TILE__1.exr \
 --over /tmp/tiles/test.%04d__TILE__2.exr --over /tmp/tiles/test.%04d__TILE__3.exr \
@@ -179,11 +196,15 @@ class TestBatchFarm(unittest.TestCase):
         
 
 
-
 #     def test_make_movie(self):
 #         # batch_farm = BatchFarm(job_name, parent_job_name, queue, command, command_arg)
 #         # self.assertEqual(expected, batch_farm.make_movie(filename))
 #         assert False # TODO: implement your test here
 
 if __name__ == '__main__':
-    unittest.main()
+    #unittest.main()
+    #FIXME: why not just unittest.main()
+     for test in unittest.TestCase.__subclasses__()[1:]:
+         case = unittest.TestLoader().loadTestsFromTestCase(test)
+         unittest.TextTestRunner(verbosity=3).run(case)
+
