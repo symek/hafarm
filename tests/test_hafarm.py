@@ -13,15 +13,15 @@ except:
     pass
 
 # make ../../ha/hafarm visible for tests:
-sys.path.insert(0, os.path.join(os.getcwd(), "../../.."))
+sys.path.insert(0, os.path.join(os.getcwd(), "../.."))
 
-from ha import hafarm
-from ha.hafarm import const
-from ha.hafarm import  HaFarm
+import hafarm
+from hafarm import const
+from hafarm import  HaFarm
 
-from ha.hafarm import HaFarmParms
-from ha.hafarm.const import hafarm_defaults
-from ha.hafarm.Batch import BatchFarm
+from hafarm import HaFarmParms
+from hafarm.const import hafarm_defaults
+from hafarm.Batch import BatchFarm
 
 join_tiles_output = """ /tmp/tiles/test.%04d__TILE__0.exr /tmp/tiles/test.%04d__TILE__1.exr \
 --over /tmp/tiles/test.%04d__TILE__2.exr --over /tmp/tiles/test.%04d__TILE__3.exr \

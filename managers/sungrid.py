@@ -1,11 +1,10 @@
 # No dramaa atm
 # import drmaa
 import os, sys
-import ha.hafarm
-from ha.hafarm import utils
-from ha.hafarm import const
-from ha.hafarm.manager import RenderManager 
-#from manager   import RenderManager
+import hafarm
+from hafarm import utils
+from hafarm import const
+from hafarm.manager import RenderManager 
 
 __plugin__version__ = 0.1
 

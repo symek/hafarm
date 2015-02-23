@@ -13,16 +13,16 @@ except:
     pass
 
 # make ../../ha/hafarm visible for tests:
-sys.path.insert(0, os.path.join(os.getcwd(), "../../.."))
+sys.path.insert(0, os.path.join(os.getcwd(), "../.."))
 
-from ha import hafarm
-from ha.hafarm import const
-from ha.hafarm import  HaFarm
-from ha.hafarm.managers import Sungrid
+import hafarm
+from hafarm import const
+from hafarm import  HaFarm
+from hafarm.managers import Sungrid
 
-from ha.hafarm import HaFarmParms
-from ha.hafarm.const import hafarm_defaults
-from ha.hafarm.Batch import BatchFarm
+from hafarm import HaFarmParms
+from hafarm.const import hafarm_defaults
+from hafarm.Batch import BatchFarm
 
 _create_job_script_output =\
 """#!/bin/bash

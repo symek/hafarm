@@ -1,5 +1,4 @@
 import os, sys
-import ha
 
 # TODO: We either do proper Python's  eggs (see: http://docs.pylonsproject.org/projects/pylons-webframework/\
 # en/latest/advanced_pylons/entry_points_and_plugins.html) or make something like: managers/__init__.py 

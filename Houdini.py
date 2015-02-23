@@ -7,15 +7,10 @@ import hou
 
 # Custom: 
 import hafarm
-import ha
-from ha.hafarm import utils
-from ha.hafarm import const
-from ha.hafarm import Batch
-from ha.path import padding, find_sequence
+from hafarm import utils
+from hafarm import const
+import Batch
 
-reload(utils)
-reload(hafarm)
-reload(const)
 
 class HbatchFarm(hafarm.HaFarm):
     def __init__(self, node, rop):
@@ -310,8 +305,8 @@ def mantra_render_with_tiles(node, rop, hscript_farm):
 
 def mantra_render_from_ifd(ifds, start, end, node, job_name=None):
     """Separated path for renderig directly from provided ifd files."""
-    import glob0
-    seq_details = padding(ifds)
+    import glob
+    seq_details = utils.padding(ifds)
     #job name = ifd file name + current ROP name.
     if not job_name:
         job_name = os.path.split(seq_details[0])[1] + "from" + node.name()
