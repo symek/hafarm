@@ -13,9 +13,7 @@ if not 'PythonPanel' in nukescripts.__dict__:
 
 # Custom: 
 import hafarm
-reload(hafarm)
-import ha
-from ha.hafarm import utils
+from hafarm import utils
 
 class NukeFarm(hafarm.HaFarm):
     def __init__(self):
@@ -104,14 +102,14 @@ class NukeFarmGUI(nukescripts.PythonPanel ):
         job = os.getenv("JOB_CURRENT", "none")
 
         # Queue list
-        self.queue_list = self.farm.get_queue_list()
+        self.queue_list = self.farm.manager.get_queue_list()
         self.queueKnob = nuke.Enumeration_Knob("queue", "Queue:", self.queue_list)
         self.queueKnob.setTooltip("Queue to submit job to.")
         self.queueKnob.setValue('nuke')
         self.addKnob(self.queueKnob)
 
         # Group list:
-        self.group_list = nuke.Enumeration_Knob("group", "Host Group:", self.farm.get_group_list())
+        self.group_list = nuke.Enumeration_Knob("group", "Host Group:", self.farm.manager.get_group_list())
         self.group_list.setTooltip("Host group to submit job to.")
         self.group_list.setValue('allhosts')
         self.addKnob(self.group_list)

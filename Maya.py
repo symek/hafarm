@@ -4,9 +4,6 @@ import os
 import maya
 # Custom: 
 import hafarm
-reload(hafarm)
-import ha
-
 
 
 class MayaFarm(hafarm.HaFarm):
@@ -84,13 +81,13 @@ class MayaFarmGUI(object):
         
         # Queue list:
         self.queue_list = maya.cmds.optionMenu(label = "Render Queues", cc = self.change_queue)        
-        for q in self.farm.get_queue_list(): 
+        for q in self.farm.manager.get_queue_list(): 
             maya.cmds.menuItem(label = q)
             maya.cmds.setParent(menu = True)
 
         # Group list:
         self.group_list = maya.cmds.optionMenu(label = "Host group", cc = self.change_group)        
-        for q in self.farm.get_group_list(): 
+        for q in self.farm.manager.get_group_list(): 
             maya.cmds.menuItem(label = q)
             maya.cmds.setParent(menu = True)
 
@@ -137,11 +134,6 @@ class MayaFarmGUI(object):
     def renderButton_pressed(self, v):
         """Send render and print some info."""
         result = self.farm.render()
-        print 'Pre Render Log:'
-        for x in range(len(result)/2):
-            print str(result[x*2]) + str(":"), 
-            print result[(x*2)+1]
-
         maya.cmds.deleteUI(self.window)
 
     def get_layer_list(self):
