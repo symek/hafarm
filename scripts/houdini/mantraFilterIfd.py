@@ -11,9 +11,9 @@ from optparse import OptionParser
 from hashlib import md5
 from time import time
 from os import getenv
-import ha.path
+from hafarm import utils
 # Imports tiling constant
-from ha.hafarm import const
+from hafarm import const
 
 gilight = False
 ha_instance_num = 0
@@ -248,7 +248,7 @@ def build_dictionary(fields):
 	store['insider']    = "HaFilterIFD"
 	# Sequence id helps to find it in db,
 	# Path + name -padding + extension:
-	seed = ha.path.padding(store['filename'])
+	seed = utils.padding(store['filename'])
 	store['seq_id'] = md5(seed[0][:-1] + seed[-1]).hexdigest()
 	return store
     
