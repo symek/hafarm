@@ -223,7 +223,9 @@ class MantraFarm(hafarm.HaFarm):
         elif self.parms['make_proxy']:
             python_command.append("--proxy")
 
-        self.parms['command'] += ' -P "%s ' % const.MANTRA_FILTER + " ".join(python_command) + '"'
+        # TODO: Config issues. Should we rely on ROP setting or hafarm defaults?
+        mantra_filter = self.node.parm("ifd_filter").eval()
+        self.parms['command'] += ' -P "%s ' % mantra_filter + " ".join(python_command) + '"'
         
 
     def pre_schedule(self):
