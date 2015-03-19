@@ -60,9 +60,22 @@ class Sungrid(RenderManager):
                 if not key in self.parms: sge_frames_variables.append(key)
                 else: sge_frames_variables.append(self.parms[key])
 
+        # Support for autoscaling multithreading threading (must be optionl atm): 
+        if const.MAX_CORES in self.parms['command_arg']:
+            idx = self.parms['command_arg'].index(const.MAX_CORES)
+            self.parms['command_arg'].pop(idx)
+            if self.parms['cpu_share'] != 0.0:
+                self.parms['command_arg'].insert(idx, '$(python -c "from math import ceil; print int(ceil($NPROC*%s))")' \
+                    % self.parms['cpu_share'])
+            else:
+                # Set autoscaling for MAX:
+                self.parms['command_arg'].insert(idx, '$NPROC')
+
         # SGE specific tweak (we can rely on SGE env variable instead of specifying explicite frames)
         self.parms['command_arg'] += [self.parms['frame_range_arg'][0] % tuple(sge_frames_variables)]
         command_arg = " ".join(arg for arg in self.parms['command_arg'])
+
+
 
         # Mailing support:
         # FIXME: This doesn't work atm....
