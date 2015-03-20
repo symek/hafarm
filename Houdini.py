@@ -207,19 +207,19 @@ class MantraFarm(hafarm.HaFarm):
             self.parms['end_frame']      = int(self.rop.parm('f2').eval())
             self.parms['output_picture'] = str(self.rop.parm("vm_picture").eval())        
             
-            # Setting != 0 idicates we want to do something about it:
-            if self.node.parm("slots").eval() != 0 or self.node.parm("cpu_share").eval() != 1.0:
-                threads   = self.node.parm("slots").eval()
-                cpu_share = self.node.parm('cpu_share').eval()
-                # Note: "-j threads" appears in a command only if mantra doesn't take all of them. 
-                # TODO: Bollow is a try to make autoscaling based on percentange of avaiable cpus.
-                # Needs rethinking...
-                self.parms['slots'] = threads
-                self.parms['cpu_share'] = cpu_share
-                if cpu_share != 1.0:
-                    self.parms['command_arg'] += ['-j', const.MAX_CORES]
-                else:
-                    self.parms['command_arg'] += ['-j', str(threads)]
+        # Setting != 0 idicates we want to do something about it:
+        if self.node.parm("slots").eval() != 0 or self.node.parm("cpu_share").eval() != 1.0:
+            threads   = self.node.parm("slots").eval()
+            cpu_share = self.node.parm('cpu_share').eval()
+            # Note: "-j threads" appears in a command only if mantra doesn't take all of them. 
+            # TODO: Bollow is a try to make autoscaling based on percentange of avaiable cpus.
+            # Needs rethinking...
+            self.parms['slots'] = threads
+            self.parms['cpu_share'] = cpu_share
+            if cpu_share != 1.0:
+                self.parms['command_arg'] += ['-j', const.MAX_CORES]
+            else:
+                self.parms['command_arg'] += ['-j', str(threads)]
 
         # Adding Python filtering:
         # Crop support:
