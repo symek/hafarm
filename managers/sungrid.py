@@ -60,7 +60,7 @@ class Sungrid(RenderManager):
                 if not key in self.parms: sge_frames_variables.append(key)
                 else: sge_frames_variables.append(self.parms[key])
 
-        # Support for autoscaling multithreading threading (must be optionl atm): 
+        # Support for autoscaling multithreading  (must be optionl atm): 
         if const.MAX_CORES in self.parms['command_arg']:
             idx = self.parms['command_arg'].index(const.MAX_CORES)
             self.parms['command_arg'].pop(idx)
