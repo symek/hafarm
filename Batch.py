@@ -90,7 +90,7 @@ class BatchFarm(hafarm.HaFarm):
         base, file = os.path.split(details[0])
         file, ext  = os.path.splitext(file)
         inputfile  = os.path.join(base, const.PROXY_POSTFIX, file + '.jpg')
-        outputfile = os.path.join(base, padding(filename)[0] + 'mp4')
+        outputfile = os.path.join(base, utils.padding(filename)[0] + 'mp4')
         command = "-y -r 25 -i %s -an -vcodec libx264 -vpre slow -crf 26 -threads 1 %s" % (inputfile, outputfile)
         self.parms['command'] = 'ffmpeg '
         self.parms['command_arg'] = [command]
