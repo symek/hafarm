@@ -1,6 +1,7 @@
 # Standard:
 import os
 import itertools
+import time
 
 # Host specific:
 import hou
@@ -143,7 +144,7 @@ class HbatchFarm(hafarm.HaFarm):
 
 
 class MantraFarm(hafarm.HaFarm):
-    def __init__(self, node, rop=None, job_name=None, parent_job_name=None, crop_parms=(1,1,0)):
+    def __init__(self, node, rop=None, job_name='', parent_job_name=[], crop_parms=(1,1,0)):
         super(MantraFarm, self).__init__()
 
         # Keep reference to assigned rop
@@ -156,9 +157,15 @@ class MantraFarm(hafarm.HaFarm):
         self.parms['max_running_tasks'] = int(self.node.parm('max_running_tasks').eval())
 
         # Mantra jobs' names are either derived from parent job (hscript)
-        # or provided by user (to allow of using ifd names for a job.)
-        if not job_name: job_name    = parent_job_name
-        self.parms['job_name']       = job_name + '_mantra'
+        # or provided by user (to allow of using ifd names for a job.) 
+        if not job_name:
+            if parent_job_name: 
+                job_name  = str(parent_job_name[0]) + '_mantra'
+            else:
+                # Fallback generates name from current time:
+                job_name = utils.convert_seconds_to_SGEDate(time.time()) + "_mantra"
+        
+        self.parms['job_name'] = job_name 
 
         # Tiling support:
         if crop_parms != (1,1,0):
@@ -196,12 +203,16 @@ class MantraFarm(hafarm.HaFarm):
 
         # Hold until parent job isn't completed
         if parent_job_name:
-            self.parms['hold_jid'] = [parent_job_name]
+            self.parms['hold_jid'] = parent_job_name
         
         # Bellow needs any node to be connected, which isn't nececery for rendering directly
         # from ifd files:
         if rop:
-            self.parms['scene_file']     = os.path.join(self.node.parm("ifd_path").eval(), job_name + '.' + const.TASK_ID + '.ifd')
+            # FIXME: job_name is wrong spot to derive ifd name from...
+            ifd_name = job_name
+            if "_mantra" in job_name:
+                ifd_name = job_name.replace("_mantra", "")
+            self.parms['scene_file']     = os.path.join(self.node.parm("ifd_path").eval(), ifd_name + '.' + const.TASK_ID + '.ifd')
             self.parms['command']        = '$HFS/bin/' +  str(self.rop.parm('soho_pipecmd').eval()) 
             self.parms['start_frame']    = int(self.rop.parm('f1').eval())
             self.parms['end_frame']      = int(self.rop.parm('f2').eval())
@@ -263,7 +274,7 @@ def mantra_render_frame_list(node, rop, hscript_farm, frames):
 
     mantra_frames = []
     for frame in frames:
-        mantra_farm = MantraFarm(node, rop, job_name=None, parent_job_name=hscript_farm.parms['job_name'])
+        mantra_farm = MantraFarm(node, rop, parent_job_name=hscript_farm.parms['job_name'])
         # Single task job:
         mantra_farm.parms['start_frame'] = frame
         mantra_farm.parms['end_frame']   = frame
@@ -283,7 +294,7 @@ def mantra_render_with_tiles(node, rop, hscript_farm):
     tiles_y = rop.parm('vm_tile_count_y').eval()
 
     for tile in range(tiles_x*tiles_y):
-        mantra_farm = MantraFarm(node, rop, job_name = None, parent_job_name = hscript_farm.parms['job_name'], \
+        mantra_farm = MantraFarm(node, rop, parent_job_name = hscript_farm.parms['job_name'], \
                                                             crop_parms = (tiles_x,tiles_y,tile))
         show_details("Mantra", mantra_farm.parms, mantra_farm.render()) 
         tile_job_ids.append(mantra_farm.parms['job_name'])
@@ -320,7 +331,7 @@ def mantra_render_from_ifd(ifds, start, end, node, job_name=None):
     if not job_name:
         job_name = os.path.split(seq_details[0])[1] + "from" + node.name()
 
-    mantra_farm = MantraFarm(node, None, job_name)
+    mantra_farm = MantraFarm(node, '', job_name)
     mantra_farm.parms['start_frame'] = node.parm("ifd_range1").eval() #TODO make automatic range detection
     mantra_farm.parms['end_frame']   = node.parm("ifd_range2").eval() #TODO as above
     mantra_farm.parms['step_frame']  = node.parm("ifd_range3").eval()
@@ -336,8 +347,7 @@ def mantra_render_from_ifd(ifds, start, end, node, job_name=None):
 
     # Detect output image. Uses grep ray_image on ifd file:
     mantra_farm.parms['output_picture'] = utils.get_ray_image_from_ifd(real_ifds[0])
-    print "Rendering with existing ifd files: %s" % ifds
-    show_details("Mantra", mantra_farm.parms, mantra_farm.render()) 
+    return mantra_farm
 
 
 def show_details(title, parms, result, verbose=False):
@@ -369,58 +379,82 @@ def render_pressed(node):
 
     # FIXME: This shouldn't be here?
     hou.hipFile.save()
+    queue    = str(node.parm('queue').eval())
+    job_name = node.name()
+    parent_job_name = []
+    output_picture = ''
 
     # a) Ignore all inputs and render from provided ifds:
     if node.parm("render_from_ifd").eval():
         ifds  = node.parm("ifd_files").eval()
         start = node.parm("ifd_range1").eval() #TODO make automatic range detection
         end   = node.parm("ifd_range2").eval() #TODO as above
-        mantra_render_from_ifd(ifds, start, end, node)
-        return
+        mantra_farm = mantra_render_from_ifd(ifds, start, end, node)
+        mantra_farm.render()
 
-    # b) Iterate over inputs 
-    inputs = node.inputs()
-    for rop in inputs:
-        hscript_farm = HbatchFarm(node, rop)
-        show_details('Hscript', hscript_farm.parms, hscript_farm.render())
+        job_name = mantra_farm.parms['job_name']
+        parent_job_name = [job_name,]
+        output_picture = mantra_farm.parms['output_picture']
+        
+    # We are ignoring Rop's inputs in 'ifd' mode:
+    else: 
+        # b) Iterate over inputs 
+        inputs = node.inputs()
+        for rop in inputs:
+            hscript_farm = HbatchFarm(node, rop)
+            hscript_farm.render()
+            job_name        = hscript_farm.parms['job_name']
+            parent_job_name = [job_name,]
 
-        # Continue the loop in case this wasn't Mantra ROP.
-        if rop.type().name() != 'ifd':
-            continue
+            # Continue the loop in case this wasn't Mantra ROP.
+            if rop.type().name() != 'ifd':
+                continue
 
-        # Render randomly selected frames provided by the user in HaFarm parameter:
-        if  node.parm("use_frame_list").eval():
-            # TODO: Doesn't suppport tiling nor anything down the stream...
-            frames = node.parm("frame_list").eval()
-            frames = utils.parse_frame_list(frames)
-            mantra_frames = mantra_render_frame_list(node, rop, hscript_farm, frames)
-        else:
-
-            # Business as usual:
-            # TODO: Move tiling inside MantraFarm class...
-            # Custom tiling:
-            if rop.parm('vm_tile_render').eval():
-                mantra_tiles = mantra_render_with_tiles(node, rop, hscript_farm)
+            # Render randomly selected frames provided by the user in HaFarm parameter:
+            if  node.parm("use_frame_list").eval():
+                # TODO: Doesn't suppport tiling nor anything down the stream...
+                frames = node.parm("frame_list").eval()
+                frames = utils.parse_frame_list(frames)
+                mantra_frames  = mantra_render_frame_list(node, rop, hscript_farm, frames)
+                # Variables to be used likely in post-render actions:
+                output_picture = mantra_frames[0].parms['output_picture']
+                job_name       = mantra_frames[0].parms['job_name']
+                parent_job_name= [job_name,]
+               
             else:
-                # Proceed normally (no tiling required):
-                mantra_farm = MantraFarm(node, rop, job_name = None, parent_job_name = hscript_farm.parms['job_name'],)
-                show_details("Mantra", mantra_farm.parms, mantra_farm.render()) 
 
-                # Proceed with debuging:
-                if node.parm("debug_images").eval():
-                    debug_render  = Batch.BatchFarm(job_name = hscript_farm.parms['job_name'] + "_debug", 
-                                                     queue    = str(node.parm('queue').eval()),
-                                                     parent_job_name = [mantra_farm.parms['job_name']])
-                    debug_render.debug_images(mantra_farm.parms['output_picture'])
-                    debug_render.render()
+                # Business as usual:
+                # TODO: Move tiling inside MantraFarm class...
+                # Custom tiling:
+                if rop.parm('vm_tile_render').eval():
+                    mantra_tiles    = mantra_render_with_tiles(node, rop, hscript_farm)
+                    joiner          = mantra_tiles[-1]
+                    # Variables to be used likely in post-render actions:
+                    output_picture  = joiner.parms['output_picture']
+                    job_name        = joiner.parms['job_name']
+                    parent_job_name = [job_name,]
 
-                # Make a movie from proxy frames:
-                if node.parm("make_proxy").eval() and node.parm("make_movie").eval():
-                    movie  = Batch.BatchFarm(job_name = hscript_farm.parms['job_name'] + "_mp4", 
-                                              queue    = str(node.parm('queue').eval()),
-                                              parent_job_name = [mantra_farm.parms['job_name']])
-                    movie.make_movie(mantra_farm.parms['output_picture'])
-                    movie.render()
+                else:
+                    # Proceed normally (no tiling required):
+                    mantra_farm = MantraFarm(node, rop, job_name = job_name + "_mantra", parent_job_name = parent_job_name)
+                    mantra_farm.render()
+                    # Variables to be used likely in post-render actions:
+                    output_picture  = mantra_farm.parms['output_picture']
+                    job_name        = mantra_farm.parms['job_name']
+                    parent_job_name = [job_name,]
+
+    # Proceed with post-render actions (debug, mp4, etc):
+    # Debug images:
+    if node.parm("debug_images").eval():
+        debug_render = Batch.BatchFarm(job_name = job_name + "_debug", queue = queue, parent_job_name = parent_job_name)
+        debug_render.debug_images(output_picture)
+        debug_render.render()
+
+    # Make a movie from proxy frames:
+    if node.parm("make_proxy").eval() and node.parm("make_movie").eval():
+        movie  = Batch.BatchFarm(job_name = job_name + "_mp4", queue = queue, parent_job_name = parent_job_name)
+        movie.make_movie(output_picture)
+        movie.render()
 
         
             
