@@ -13,6 +13,7 @@ from hafarm import const
 import Batch
 
 
+
 class HbatchFarm(hafarm.HaFarm):
     def __init__(self, node, rop):
         super(HbatchFarm, self).__init__()
@@ -22,9 +23,9 @@ class HbatchFarm(hafarm.HaFarm):
 
         # command will be either hscript csh script shipped with Houdini 
         # or any custom render script (harender atm.)
-        self.parms['command']     = str(self.node.parm("command").eval())
+        self.set_parmv(rop, 'command')
         # Max tasks render managet will attempt to aquire at once: 
-        self.parms['max_running_tasks'] = int(self.node.parm('max_running_tasks').eval())
+        self.set_parmv(node, 'max_running_tasks')
 
         # This is because we do tiling ourselfs:
         if self.rop.type().name() == 'ifd':
@@ -38,8 +39,7 @@ class HbatchFarm(hafarm.HaFarm):
 
             # Default Mantra imager (doesn't make sense in hbatch cache though)
             # TODO: Shouln't it be an ifd file instead of the image?
-            self.parms['output_picture'] = str(self.rop.parm("vm_picture").eval())
-
+            self.set_parmv(rop, 'output_picture', 'vm_picture')
         # 
         self.parms['scene_file']  = str(hou.hipFile.name())
         self.parms['job_name']    = self.generate_unique_job_name(self.parms['scene_file'])
@@ -50,13 +50,13 @@ class HbatchFarm(hafarm.HaFarm):
 
         # Requests resurces and licenses (TODO shouldn't we aquire slot here?)
         self.parms['req_license']   = 'hbatchlic=1' 
-        self.parms['req_resources'] = 'procslots=%s' % int(self.node.parm('slots').eval())
+        self.parms['req_resources'] = 'procslots=%s' % self.get_parmv(node, 'slots')
 
         # Use single host for everything (for simulation for example)
         if self.node.parm("use_one_slot").eval():
-            self.parms['step_frame']  = int(self.rop.parm('f2').eval())
+            self.set_parmv(rop, 'step_frame', 'f2')
         else:
-            self.parms['step_frame']  = int(self.node.parm('step_frame').eval())
+            self.set_parmv(node, 'step_frame')
 
         # Use provided frame list instead of frame range. Hscript needs bellow changes to
         # make generic path to work with list of frames: 
@@ -67,9 +67,9 @@ class HbatchFarm(hafarm.HaFarm):
         #   Mantra is sent as a series of single task jobs though, so frame list isn't supported per se by
         #   this class, but rather host specific code. 
         if self.node.parm("use_frame_list").eval():
-            self.parms['frame_list']  = str(self.node.parm("frame_list").eval())
-            self.parms['step_frame']  = int(self.rop.parm('f2').eval())
-            self.parms['command_arg'] += ['-l %s' %  self.parms['frame_list']]
+            self.set_parmv(node, 'frame_list')
+            self.set_parmv(rop, 'step_frame', 'f2')
+            self.parms['command_arg'] += ['-l %s' %  self.get_parmv(mode, 'frame_list')]
 
 
         # FIXME: this is meaningless, make it more general
@@ -83,16 +83,16 @@ class HbatchFarm(hafarm.HaFarm):
         self.parms['email_opt']   = str(self.node.parm('email_opt').eval())
 
         # Queue, groups, frame ranges
-        self.parms['queue']       = str(self.node.parm('queue').eval())
-        self.parms['group']       = str(self.node.parm('group').eval())
-        self.parms['start_frame'] = int(self.rop.parm('f1').eval())
-        self.parms['end_frame']   = int(self.rop.parm('f2').eval())
-        self.parms['frame_range_arg'] = ["-f %s %s -i %s", 'start_frame', 'end_frame',  int(self.rop.parm('f3').eval())]
+        self.set_parmv(node, 'queue')
+        self.set_parmv(node, 'group')
+        self.set_parmv(rop, 'start_frame', 'f1')
+        self.set_parmv(rop, 'end_frame', 'f2')
+        self.parms['frame_range_arg'] = ["-f %s %s -i %s", 'start_frame', 'end_frame',  self.get_parmv(rop, 'f3')]
         self.parms['target_list'] = [str(self.rop.path()),]
 
         # job on hold, priority, 
-        self.parms['job_on_hold'] = bool(self.node.parm('job_on_hold').eval())
-        self.parms['priority']    = int(self.node.parm('priority').eval())
+        self.set_parmv(node, 'job_on_hold')
+        self.set_parmv(node, 'priority')
 
         # Requested delay in evaluation time:
         delay = self.node.parm('delay').eval()
@@ -100,7 +100,7 @@ class HbatchFarm(hafarm.HaFarm):
             self.parms['req_start_time'] = utils.compute_delay_time(delay)
 
         # This will overwrite any from above command arguments for harender according to command_arg parm:
-        self.parms['command_arg'] += [str(self.node.parm("command_arg").eval())]
+        self.parms['command_arg'] += [self.get_parmv(node, 'command_arg')]
 
 
     def pre_schedule(self):
@@ -139,8 +139,27 @@ class HbatchFarm(hafarm.HaFarm):
         # Any debugging info [object, outout]:
         return []
 
+    def set_parmv(self, node, parm, overwrite=None, inplace=True):
+        '''Helper function to get parms values with type checking etc.'''
 
+        # We try to keep both names the same...
+        if not overwrite: hparm = parm
+        else: hparm = overwrite
 
+        # Return if node doesn't contain a paramter:
+        if not node.parm(hparm):
+            self.logger.debug("%s counldn't find %s. Leaving default value." % (str(self), hparm))
+            return
+
+        # NOTE: We don't check if parm exists in self.parms asumming such error should be rise anyway
+        # TODO: Add type checking/casting. 
+        if inplace:
+            self.parms[parm] = node.parm(hparm).eval()
+        else:
+            return node.parm(hparm).eval()
+
+    def get_parmv(self, node, parm):
+        return self.set_parmv(node, parm, None, False)
 
 
 class MantraFarm(hafarm.HaFarm):
