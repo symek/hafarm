@@ -278,7 +278,7 @@ def mantra_render_frame_list(node, rop, hscript_farm, frames):
         # Single task job:
         mantra_farm.parms['start_frame'] = frame
         mantra_farm.parms['end_frame']   = frame
-        show_details("Mantra", mantra_farm.parms, mantra_farm.render()) 
+        mantra_farm.render()
         mantra_frames.append(mantra_farm)
 
     return mantra_frames
@@ -296,7 +296,7 @@ def mantra_render_with_tiles(node, rop, hscript_farm):
     for tile in range(tiles_x*tiles_y):
         mantra_farm = MantraFarm(node, rop, parent_job_name = hscript_farm.parms['job_name'], \
                                                             crop_parms = (tiles_x,tiles_y,tile))
-        show_details("Mantra", mantra_farm.parms, mantra_farm.render()) 
+        mantra_farm.render()
         tile_job_ids.append(mantra_farm.parms['job_name'])
         mantra_tiles.append(mantra_farm)
 
@@ -349,29 +349,6 @@ def mantra_render_from_ifd(ifds, start, end, node, job_name=None):
     mantra_farm.parms['output_picture'] = utils.get_ray_image_from_ifd(real_ifds[0])
     return mantra_farm
 
-
-def show_details(title, parms, result, verbose=False):
-    '''This is temporary debugging facility. '''
-    
-    if not verbose:
-        if not os.getenv("HAFARM_DEBUG", False):
-            return
-
-
-    # TODO: replace with proper logging.
-    print "\n\t %s execution... " % str(title)
-    if parms and isinstance(parms, type({})):
-        print " ==== Parameters: ==== "
-        for key in parms.keys():
-            print "\t " + key + ": " + str(parms[key])
-        
-    if result and isinstance(result, type([])):
-        print " ==== Retured values: ==== "
-        for x in range(0, len(result),2):
-            print "\t" + result[x],
-            if len(result) > x+1:
-                print ": ",
-                print str(result[x+1])
 
 
 def render_pressed(node):
