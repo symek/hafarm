@@ -292,15 +292,14 @@ def mantra_render_with_tiles(node, rop, hscript_farm):
     mantra_tiles = []
     tiles_x = rop.parm('vm_tile_count_x').eval()
     tiles_y = rop.parm('vm_tile_count_y').eval()
+    parent_job = [hscript_farm.parms['job_name'],]
 
     for tile in range(tiles_x*tiles_y):
-        mantra_farm = MantraFarm(node, rop, parent_job_name = hscript_farm.parms['job_name'], \
-                                                            crop_parms = (tiles_x,tiles_y,tile))
+        mantra_farm = MantraFarm(node, rop, parent_job_name = parent_job, crop_parms = (tiles_x,tiles_y,tile))
         mantra_farm.render()
         tile_job_ids.append(mantra_farm.parms['job_name'])
         mantra_tiles.append(mantra_farm)
 
-    
     # Tile merging job:
     merging_job_name = hscript_farm.parms['job_name'] + '_merge'
     merge_job = Batch.BatchFarm(job_name = merging_job_name, 
@@ -318,9 +317,9 @@ def mantra_render_with_tiles(node, rop, hscript_farm):
                           mantra_farm.parms['start_frame'],
                           mantra_farm.parms['end_frame'],
                           tiles_x*tiles_y)
-
     merge_job.render()
-    return mantra_tiles.append(merge_job)
+
+    return (mantra_tiles, merge_job)
 
 
 def mantra_render_from_ifd(ifds, start, end, node, job_name=None):
@@ -404,8 +403,7 @@ def render_pressed(node):
                 # TODO: Move tiling inside MantraFarm class...
                 # Custom tiling:
                 if rop.parm('vm_tile_render').eval():
-                    mantra_tiles    = mantra_render_with_tiles(node, rop, hscript_farm)
-                    joiner          = mantra_tiles[-1]
+                    tiles, joiner   = mantra_render_with_tiles(node, rop, hscript_farm)
                     # Variables to be used likely in post-render actions:
                     output_picture  = joiner.parms['output_picture']
                     job_name        = joiner.parms['job_name']
