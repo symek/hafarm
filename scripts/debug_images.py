@@ -7,6 +7,7 @@ import smtplib
 from email.mime.text import MIMEText
 from optparse import OptionParser
 import numpy
+import json
 
 # Custom:
 import fileseq
@@ -42,14 +43,14 @@ table#t01 th    {
     color: white;
 }
 
-tr.d0 td {
-    background-color: #CC9999; color: black;
+tr.small_frame td {
+    background-color: #CC6600; color: black;
 }
-tr.d1 td {
-    background-color: #9999CC; color: black;
+tr.bad_file td {
+    background-color: #CC9900; color: black;
 }
-tr.d2 td {
-    background-color: red; color: black;
+tr.missing_file td {
+    background-color: #CC0000; color: black;
 
 }
 }
@@ -84,9 +85,9 @@ ROW =  """
 
 
 NORMAL_FILE_TAG = "<tr>"
-MISSING_FILE_TAG = """<tr class="d2">"""
-BAD_FILE_TAG     = """<tr class="d1">"""
-SMALL_FILE_TAG   = """<tr class="d0">"""
+MISSING_FILE_TAG = """<tr class="missing_file">"""
+BAD_FILE_TAG     = """<tr class="bad_file">"""
+SMALL_FILE_TAG   = """<tr class="small_frame">"""
 
 
 def help():
@@ -98,42 +99,40 @@ def help():
 def parseOptions():
     usage = "usage: %prog [options] arg"
     parser = OptionParser(usage)
-    parser.add_option("-i", "--input", dest="image_pattern",  action="store", type="string", default="", help="Imge pattern to proceed.")
+    parser.add_option("-i", "--input", dest="image_pattern",  action="store", type="string", default="", help="Image pattern to proceed.")
+    parser.add_option("-j", "--job", dest="job_name",  action="store", type="string", default="", help="Job name debug belongs to.")
     parser.add_option("-m", "--send_email", dest='send_email', action='store_true', default=False, help="Sends report via email.")
-    parser.add_option("-s", "--save_html", dest='save_html', action='store_true', default=False, help="Save report as html file.")
+    parser.add_option(""  , "--save_html", dest='save_html', action='store_true', default=False, help="Save report as html file.")
+    parser.add_option(""  , "--save_json", dest='save_json', action='store_true', default=False, help="Save report as json file.")
     parser.add_option("-p", "--print", dest='print_report', action='store_true', default=True, help="Prints report on stdout.")
     parser.add_option("-d", "--display", dest='display_report', action='store_true', default=False, help="Displays report in web browser.")
     parser.add_option("-e", "--errors_only", dest='errors_only', action='store_true', default=False, help="Focus only on errors in report.")
-    # parser.add_option("-d", "--driver", dest="driver",  action="store", type="string", help="ROP driver to render.")
-    # parser.add_option("-f", "--frame_range", dest="frame_range",  action="store", type="int", nargs=2, help="Frames range to render (-f 1 100)")
-    # parser.add_option("-j", "--threads", dest="threads",  action="store", type="int", default=1, help="Controls multithreading.")
-    # parser.add_option("-l", "--frame_list", dest="frame_list",  action="store",  help="Alternative ")
-    # parser.add_option("", "--generate_ifds", dest='generate_ifds', action='store_true', default=False, help="Changes Rop setting to save IFD files on disk. ")
-    # parser.add_option("", "--ifd_path", dest='ifd_path', action='store', default='$JOB/render/sungrid/ifd', help="Overwrites default IFD path.")
     (opts, args) = parser.parse_args(sys.argv[1:])
     return opts, args
 
 
 
-def generete_html(db):
+def generate_html(db, errors_only=False):
+    """Interate over rows in db and generate html document from that.
+    """
     html = ""
     html += HEAD
     html += "<body>"
     html += TABLE_HEADER
 
-
-    for frame_num in db:
-        if type(frame_num) != type(0):
-            continue
-        frame = db[frame_num]
+    # *_TAGS alter rows colors...
+    for frame_num in db['frames']:
+        frame = db['frames'][frame_num]
         if not frame['exists']:
             html += MISSING_FILE_TAG
+        elif not frame['integrity']:
+            html += BAD_FILE_TAG
         elif frame['small_frame']:
             html += SMALL_FILE_TAG
         else:
             html += NORMAL_FILE_TAG
 
-        frame = db[frame_num]
+        # Generate row:
         html += ROW % (frame_num, frame['exists'], 
                        frame['integrity'], frame['nans'], 
                        frame['infs'], frame['size'], 
@@ -144,115 +143,106 @@ def generete_html(db):
     return html
 
 
-def send_debug(db, html):
+def send_debug(job_name, address, html, _from=None, server='ms1.human-ark.com'):
+    """Sends html report by email with provided smpt server. Address should be a list.
+    """
+    message = MIMEText(html, 'html')
 
-    msg = MIMEText(html, 'html')
+    message['Subject'] = 'Debug for %s' % job_name
+    message['From'] = address[0]
+    message['To']   = address[0]
 
-    # me == the sender's email address
-    # you == the recipient's email address
-    msg['Subject'] = 'Debug for %s' % db['pattern']
-    msg['From'] = 'symek@grafika28'
-    msg['To'] = 's.kapeniak@human-ark.com'
+    smpt = smtplib.SMTP(server)
+    smpt.sendmail(address[0], address, message.as_string())
+    smpt.quit()
 
-    me  = 's.kapeniak@human-ark.com'
-    you = ['s.kapeniak@human-ark.com']
+def check_small_frames(db):
+    """Check for suspecious differences in frames size.
+    """
+    # TODO: This approach doesn't work.
+    # We should compute rate of change in frame size
+    # and warn in image size overshoot expect change. 
 
-    s = smtplib.SMTP('ms1.human-ark.com')
-    s.sendmail(me, you, msg.as_string())
-    s.quit()
-
-def check_small_frames(file_size, db):
     # Check if some files aren't too small:
-    narray = numpy.array(file_size)
+    narray   = numpy.array(db['file_sizes'])
     avg_size = numpy.mean(narray)
 
     db['small_frames'] = []
 
     for frameNum in db.keys():
         if type(frameNum) == type(0):
-            frame = db[frameNum]
+            frame = db['frames'][frameNum]
             size = frame['size']
             x = size - avg_size
             if abs(x) > avg_size * 0.2:
                 db['small_frames'].append(frameNum)
-                db[frameNum]['small_frame'] = True
+                db['frames'][frameNum]['small_frame'] = True
     return db
 
+def proceed_sequence(sequence, db, first_frame, last_frame):
+    """Power horse of the script. Use iinfo and oiiotool to find details about
+    images. Stores result in dictonary 'db'
+    """
+    def iinfo_output(suspect):
+        """$HFS/bin/iinfo loop."""
+        integrity = False
+        iinfo_output = os.popen(const.IINFO + " %s" % suspecet).readlines()
+        for line in iinfo_output:
+            if line.startswith("Integrity"):
+                if "File OK" in line:
+                    integrity = True
+                break
+        return integrity
 
-def main():
+    def oiiotool_output(suspecet):
+        """oiiotool loop."""
+        nans = 0
+        infs = 0
+        oiiotool_output = os.popen(const.OIIOTOOL + " --stats %s " % suspecet).readlines()
+        for line in oiiotool_output:
+            if "NanCount:" in line:
+                line = line.strip()
+                line = line.split(":")[1]
+                _nans= line.split()
+                _nans= sum([int(x) for x in _nans])
+                if _nans:
+                    nans = _nans
+            elif "InfCount" in line:
+                line = line.strip()
+                line = line.split(":")[1]
+                _infs= line.split()
+                _infs= sum([int(x) for x in _infs])
+                if _infs:
+                    infs = _infs
+        return nans, infs
 
-    options, args     = parseOptions()
 
-    if not options.image_pattern:
-        print help()
-        sys.exit()
-
-    image_pattern = options.image_pattern
-    images        = glob.glob(image_pattern)
-    images.sort()
-
-    tmp      = utils.padding(images[0])
-    sequence = utils.padding(images[-1])
-
-    first_frame = tmp[1]
-    last_frame  = sequence[1]
-
-    db = {'first_frame': first_frame,
-          'last_frame' : last_frame,
-          'pattern'    : options.image_pattern}
 
     missing_frames = []
     file_size = []
-    
 
+    # Main loop:
     for frame in range(first_frame, last_frame+1):
-        integrity = True
-        nans = 0
-        infs = 0
-
         # This file should exist:
         suspecet = sequence[0] + str(frame).zfill(sequence[2]) + sequence[3]
-        exists = os.path.isfile(suspecet)
+        exists   = os.path.isfile(suspecet)
 
-        if exists:
+        # Frame is missing:
+        if not exists:
+            # Shorcut to store list of missing frames. 
+            missing_frames.append(frame)
+        else:
             # iinfo run:
-            iinfo_output = os.popen(const.IINFO + " %s" % suspecet).readlines()
-            for line in iinfo_output:
-                if line.startswith("Integrity"):
-                    if "File OK" in line:
-                        integrity = True
-                    else:
-                        integrity = False
-                    break
-
+            integrity = iinfo_output(suspecet)
             # oiiotool run:
-            oiiotool_output = os.popen(const.OIIOTOOL + " --stats %s " % suspecet).readlines()
-            for line in oiiotool_output:
-                if "NanCount:" in line:
-                    line = line.strip()
-                    line = line.split(":")[1]
-                    _nans= line.split()
-                    _nans= sum([int(x) for x in _nans])
-                    if _nans:
-                        nans = _nans
-                elif "InfCount" in line:
-                    line = line.strip()
-                    line = line.split(":")[1]
-                    _infs= line.split()
-                    _infs= sum([int(x) for x in _infs])
-                    if _infs:
-                        infs = _infs
-
-            # Get size to compute std dev of bytes:
+            nans, infs = oiiotool_output(suspecet)
+            
+            # Get size in kbytes:
             size = os.path.getsize(suspecet)
             file_size.append(size)
 
-        # Frame is missing:
-        else:
-            missing_frames.append(frame)
-
         # Collect data:
-        db[frame] = {'exists': exists,
+        db['frames'][frame] = {'exists': exists,
                      'integrity': integrity,
                      'nans': nans,
                      'infs': infs,
@@ -261,25 +251,81 @@ def main():
 
     # Save a shortcut info:
     db['missing_frames'] = missing_frames
+    db['file_sizes']     = file_size
 
-    # Compute avarage size of file in sequence.
-    # and 
-    db = check_small_frames(file_size, db)
+    return db
 
 
-    if options.save_html or options.send_email:
-        html = generete_html(db)
+def main():
+    """Run over files that match pattern to scan their qualities with
+    command line image tools chain. Stores result in html and sand optionally
+    via email.
+    """
+    options, args     = parseOptions()
+
+    # Image is required:
+    if not options.image_pattern:
+        print help()
+        sys.exit()
+
+    # Find images matching pattern, 
+    # the real sequence on disk:
+    pattern       = os.path.abspath(options.image_pattern)
+    images        = glob.glob(pattern)
+    images.sort()
+
+    # Get first and last frame on disk
+    # TODO Add argument to overwrite framge range on disk.
+    tmp         = utils.padding(images[0])
+    sequence    = utils.padding(images[-1])
+    first_frame = tmp[1]
+    last_frame  = sequence[1]
+
+    # Our main container:
+    # TODO: Make it custom class Sequance(dict)
+    db = {'first_frame': first_frame,
+          'last_frame' : last_frame,
+          'pattern'    : options.image_pattern,
+          'job_name'   : options.job_name,
+          'frames'     : {} }
+
+    # First run over all frames to gather per-frame information:
+    db = proceed_sequence(sequence, db, first_frame, last_frame)
+
+    # # Compute avarage size of files in a sequence.
+    db = check_small_frames(db)
+
+    # Present report:
+    if options.save_html or options.send_email \
+    or options.display_report or options.save_json:
+        html = generate_html(db)
+
+        # Send report by email:
         if options.send_email:
-            send_debug(db, html)
-        if options.save_html:
-            file = open('/home/symek/Desktop/test.html', 'w')
-            file.write(html)
-            file.close()
+            send_debug(options.job_name, [utils.get_email_address()], html)
 
-    if options.print_report:
-        print db
+        # Saving on disk:
+        if options.save_html or options.save_json:
+            path = const.hafarm_defaults['log_path']
+            path = os.path.expandvars(path)
 
-    if options.display_report:
-        os.popen("gnome-open /home/symek/Desktop/test.html")
+            # Generate filename from image or job_name:
+            if not options.job_name:
+                tmp, report = os.path.split(sequence[0])
+                report     = os.path.join(path, report + "%s")
+            else:
+                report     = os.path.join(path, options.job_name + ".%s")
+
+            # Write it down:
+            if options.save_html: 
+                with open(report % 'html', 'w') as file:
+                    file.write(html)
+
+            if options.save_json:
+                with open(report % 'json', 'w') as file:
+                    json.dump(db, file, indent=2)
+
+            # if options.save_html and options.display_report: 
+            #     os.popen("gnome-open %s " % report)
 
 if __name__ == "__main__": main()
