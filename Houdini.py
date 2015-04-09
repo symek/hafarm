@@ -144,7 +144,7 @@ class HbatchFarm(hafarm.HaFarm):
 
 
 class MantraFarm(hafarm.HaFarm):
-    def __init__(self, node, rop=None, job_name='', parent_job_name=[], crop_parms=(1,1,0)):
+    def __init__(self, node, rop=None, job_name='', parent_job_name=[],  parent_array_name=[], crop_parms=(1,1,0)):
         super(MantraFarm, self).__init__()
 
         # Keep reference to assigned rop
@@ -204,6 +204,9 @@ class MantraFarm(hafarm.HaFarm):
         # Hold until parent job isn't completed
         if parent_job_name:
             self.parms['hold_jid'] = parent_job_name
+        if parent_array_name:
+            self.parms['hold_jid_ad'] = parent_array_name
+
         
         # Bellow needs any node to be connected, which isn't nececery for rendering directly
         # from ifd files:
@@ -295,7 +298,7 @@ def mantra_render_with_tiles(node, rop, hscript_farm):
     parent_job = [hscript_farm.parms['job_name'],]
 
     for tile in range(tiles_x*tiles_y):
-        mantra_farm = MantraFarm(node, rop, parent_job_name = parent_job, crop_parms = (tiles_x,tiles_y,tile))
+        mantra_farm = MantraFarm(node, rop, parent_array_name = parent_job, crop_parms = (tiles_x,tiles_y,tile))
         mantra_farm.render()
         tile_job_ids.append(mantra_farm.parms['job_name'])
         mantra_tiles.append(mantra_farm)
@@ -411,7 +414,7 @@ def render_pressed(node):
 
                 else:
                     # Proceed normally (no tiling required):
-                    mantra_farm = MantraFarm(node, rop, job_name = job_name + "_mantra", parent_job_name = parent_job_name)
+                    mantra_farm = MantraFarm(node, rop, job_name = job_name + "_mantra", parent_array_name = parent_job_name)
                     mantra_farm.render()
                     # Variables to be used likely in post-render actions:
                     output_picture  = mantra_farm.parms['output_picture']

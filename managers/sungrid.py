@@ -156,6 +156,9 @@ class Sungrid(RenderManager):
         # Jobs' interdependency:
         hold_jid = ['-hold_jid', '%s' % ','.join(self.parms['hold_jid'])] if self.parms['hold_jid'] else []
 
+        # Job's array interdependency:
+        hold_jid_ad = ['-hold_jid_ad', '%s' % ','.join(self.parms['hold_jid_ad'])] if self.parms['hold_jid_ad'] else []
+
         # Max running tasks:
         # FIXME: make consistent access to hafarm's defaults. 
         # Now this would require import of hafarm.py
@@ -207,7 +210,7 @@ class Sungrid(RenderManager):
                      queue,
                     '-ac OUTPUT_PICTURE=%s' % self.parms['output_picture'],
                     '-p %s' % self.parms['priority'], req_resources, check_suspend,
-                    email_list, email_opt, hold_jid, start_time, script_path]
+                    email_list, email_opt, hold_jid, hold_jid_ad, start_time, script_path]
 
         # FIXME: Temporary cleanup: 
         cc = []

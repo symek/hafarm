@@ -27,6 +27,7 @@ hafarm_defaults = {'start_frame': 1,
                    'req_memory' : 4,    # Minimal free memory on rendernode.
                    'job_on_hold': False,#
                    'hold_jid'   : [],   # Job's names or ids which current job is depend on.
+                   'hold_jid_ad': [],   # Job's names or ids which current array job is depend on. 
                    'target_list': [],   # Used in applications with multiply targets (cameras in Maya batch, Write node in Nuke)
                    'layer_list' : [],   # A subset of a scene to be rendered (used by Maya, in Houdini it would be takes for example.)
                    'command'    : "",   # Rendering command.
