@@ -82,6 +82,16 @@ class BatchFarm(hafarm.HaFarm):
         self.parms['end_frame']   = 1
         self.parms['email_stdout'] = True
 
+    def debug_images2(self, filename):
+        '''By using iinfo utility inspect filename (usually renders).
+        '''
+        details = utils.padding(filename, 'shell')
+
+        self.parms['command'] = '$HAFARM_HOME/scripts/debug_images.py -m -i "%s"' % details[0]
+        self.parms['start_frame'] = 1
+        self.parms['end_frame']   = 1
+        self.parms['email_stdout'] = True
+
     def make_movie(self, filename):
         '''Make a movie from custom files. 
         '''

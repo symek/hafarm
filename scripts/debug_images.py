@@ -156,6 +156,38 @@ def send_debug(job_name, address, html, _from=None, server='ms1.human-ark.com'):
     smpt.sendmail(address[0], address, message.as_string())
     smpt.quit()
 
+    # An algorithm to compute PCA. Not as fast as the NumPy implementation
+
+def pca(data,nRedDim=0,normalise=1):
+    import numpy as np
+    
+    # Centre data
+    m = np.mean(data,axis=0)
+    data -= m
+
+    # Covariance matrix
+    C = np.cov(np.transpose(data))
+
+    # Compute eigenvalues and sort into descending order
+    evals,evecs = np.linalg.eig(C) 
+    indices = np.argsort(evals)
+    indices = indices[::-1]
+    evecs = evecs[:,indices]
+    evals = evals[indices]
+
+    if nRedDim>0:
+        evecs = evecs[:,:nRedDim]
+    
+    if normalise:
+        for i in range(np.shape(evecs)[1]):
+            evecs[:,i] / np.linalg.norm(evecs[:,i]) * np.sqrt(evals[i])
+
+    # Produce the new data matrix
+    x = np.dot(np.transpose(evecs),np.transpose(data))
+    # Compute the original data again
+    y=np.transpose(np.dot(evecs,x))+m
+    return x,y,evals,evecs
+
 def check_small_frames(db):
     """Check for suspecious differences in frames size.
     """
@@ -164,19 +196,39 @@ def check_small_frames(db):
     # and warn in image size overshoot expect change. 
 
     # Check if some files aren't too small:
-    narray   = numpy.array(db['file_sizes'])
-    avg_size = numpy.mean(narray)
+    sizes     = db['file_sizes']
+    # narray    = numpy.array(db['file_sizes'])
+    # grad_array= numpy.gradient(narray)
+    # numpy.savetxt("/tmp/narray.chan", grad_array)
+    # numpy.savetxt("/tmp/narray2.chan", narray)
+    # avg_rate  = numpy.mean(grad_array)
+    # x         = numpy.array(range(len(sizes)))
+    # pca_array = numpy.vstack((x, grad_array))
+
+    # # Extend size array +1 1+ to compute gradients:
+    # sizes.append(sizes[-1]+grad_array[-1])
+    # sizes.insert(0, sizes[0]+grad_array[0])
+
+    # x, y, eigenvectors, eigenvalues = pca(pca_array)
+    # print x
+    # print y
+    # print eigenvalues
+    # print eigenvectors
 
     db['small_frames'] = []
 
-    for frameNum in db.keys():
-        if type(frameNum) == type(0):
-            frame = db['frames'][frameNum]
+    index = 0
+    for frame_num in db['frames']:
+            frame = db['frames'][frame_num]
             size = frame['size']
-            x = size - avg_size
-            if abs(x) > avg_size * 0.2:
-                db['small_frames'].append(frameNum)
-                db['frames'][frameNum]['small_frame'] = True
+            prev = sizes[index-1]
+            next = sizes[index+1]
+            x = size - prev
+            y = size - next
+            if abs(grad_array[index]) > abs(avg_rate) * 5:
+                db['small_frames'].append(frame_num)
+                db['frames'][frame_num]['small_frame'] = True
+            index += 1
     return db
 
 def proceed_sequence(sequence, db, first_frame, last_frame):
