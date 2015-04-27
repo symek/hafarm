@@ -277,7 +277,7 @@ def mantra_render_frame_list(node, rop, hscript_farm, frames):
 
     mantra_frames = []
     for frame in frames:
-        mantra_farm = MantraFarm(node, rop, parent_job_name=hscript_farm.parms['job_name'])
+        mantra_farm = MantraFarm(node, rop, parent_job_name=[hscript_farm.parms['job_name']])
         # Single task job:
         mantra_farm.parms['start_frame'] = frame
         mantra_farm.parms['end_frame']   = frame
