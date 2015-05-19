@@ -99,7 +99,7 @@ def help():
 def parseOptions():
     usage = "usage: %prog [options] arg"
     parser = OptionParser(usage)
-    parser.add_option("-i", "--input", dest="image_pattern",  action="store", type="string", default="", help="Image pattern to proceed.")
+    parser.add_option("-i", "--image_pattern", dest="image_pattern",  action="store", type="string", default="", help="Bash patter for images to debug (image.*.exr).")
     parser.add_option("-j", "--job", dest="job_name",  action="store", type="string", default="", help="Job name debug belongs to.")
     parser.add_option("-m", "--send_email", dest='send_email', action='store_true', default=False, help="Sends report via email.")
     parser.add_option(""  , "--save_html", dest='save_html', action='store_true', default=False, help="Save report as html file.")
@@ -107,6 +107,7 @@ def parseOptions():
     parser.add_option("-p", "--print", dest='print_report', action='store_true', default=True, help="Prints report on stdout.")
     parser.add_option("-d", "--display", dest='display_report', action='store_true', default=False, help="Displays report in web browser.")
     parser.add_option("-e", "--errors_only", dest='errors_only', action='store_true', default=False, help="Focus only on errors in report.")
+    parser.add_option("",   "--merge_reports", dest='merge_reports', action='store_true', default=False, help='Merge *.json files not generate one.')
     (opts, args) = parser.parse_args(sys.argv[1:])
     return opts, args
 
@@ -250,6 +251,7 @@ def proceed_sequence(sequence, db, first_frame, last_frame):
         """oiiotool loop."""
         nans = 0
         infs = 0
+        integrity = True
         oiiotool_output = os.popen(const.OIIOTOOL + " --stats %s " % suspecet).readlines()
         for line in oiiotool_output:
             if "NanCount:" in line:
@@ -271,7 +273,7 @@ def proceed_sequence(sequence, db, first_frame, last_frame):
 
 
     missing_frames = []
-    file_size = []
+    file_sizes = []
 
     # Main loop:
     for frame in range(first_frame, last_frame+1):
@@ -291,7 +293,7 @@ def proceed_sequence(sequence, db, first_frame, last_frame):
             
             # Get size in kbytes:
             size = os.path.getsize(suspecet)
-            file_size.append(size)
+            file_sizes.append(size)
 
         # Collect data:
         db['frames'][frame] = {'exists': exists,
@@ -303,7 +305,29 @@ def proceed_sequence(sequence, db, first_frame, last_frame):
 
     # Save a shortcut info:
     db['missing_frames'] = missing_frames
-    db['file_sizes']     = file_size
+    db['file_sizes']     = file_sizes
+
+    return db
+
+def merge_reports(db, reports):
+    """ Instead of images to analize, use previously generated data in *.json format,
+        and merge them to produce single report.
+    """
+    # TODO Partial report should have freedom to keep single or group of frames...
+    # Whole report database should be little more generic, not hard coded.
+    first = 1
+    last  = 1
+    for frame in range(len(reports)):
+        file = open(reports[frame])
+        data = json.load(file)
+        for key in data['frames']:
+            db['frames'][key] = data['frames'][key]
+            fist = key if int(key) < first else first
+            last = key if int(key) > last  else last
+
+    db['first_frame'] = first
+    db['last_frame']  = last
+    #db['pattern']     = os.path.splitext(reports[frame])[0]
 
     return db
 
@@ -316,7 +340,7 @@ def main():
     options, args     = parseOptions()
 
     # Image is required:
-    if not options.image_pattern:
+    if not options.image_pattern and not options.image and not options.merge_reports:
         print help()
         sys.exit()
 
@@ -341,11 +365,17 @@ def main():
           'job_name'   : options.job_name,
           'frames'     : {} }
 
-    # First run over all frames to gather per-frame information:
-    db = proceed_sequence(sequence, db, first_frame, last_frame)
+
+    if options.merge_reports:
+        # Merge json files previsouly generated:
+        db = merge_reports(db, images)
+    else:
+        # First run over all frames to gather per-frame information:
+        db = proceed_sequence(sequence, db, first_frame, last_frame)
 
     # # Compute avarage size of files in a sequence.
-    db = check_small_frames(db)
+    # db = check_small_frames(db)
+
 
     # Present report:
     if options.save_html or options.send_email \
@@ -364,9 +394,9 @@ def main():
             # Generate filename from image or job_name:
             if not options.job_name:
                 tmp, report = os.path.split(sequence[0])
-                report     = os.path.join(path, report + "%s")
+                report      = os.path.join(path, report + "%s")
             else:
-                report     = os.path.join(path, options.job_name + ".%s")
+                report      = os.path.join(path, options.job_name + ".%s")
 
             # Write it down:
             if options.save_html: 
@@ -379,5 +409,7 @@ def main():
 
             # if options.save_html and options.display_report: 
             #     os.popen("gnome-open %s " % report)
+
+
 
 if __name__ == "__main__": main()
