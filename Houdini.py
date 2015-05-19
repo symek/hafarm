@@ -295,10 +295,12 @@ def mantra_render_with_tiles(node, rop, hscript_farm):
     mantra_tiles = []
     tiles_x = rop.parm('vm_tile_count_x').eval()
     tiles_y = rop.parm('vm_tile_count_y').eval()
-    parent_job = [hscript_farm.parms['job_name'],]
+    parent_job_name = hscript_farm.parms['job_name']
 
     for tile in range(tiles_x*tiles_y):
-        mantra_farm = MantraFarm(node, rop, parent_array_name = parent_job, crop_parms = (tiles_x,tiles_y,tile))
+        mantra_farm = MantraFarm(node, rop, job_name          = parent_job_name, 
+                                            parent_array_name = [parent_job_name], 
+                                            crop_parms = (tiles_x,tiles_y,tile))
         mantra_farm.render()
         tile_job_ids.append(mantra_farm.parms['job_name'])
         mantra_tiles.append(mantra_farm)
