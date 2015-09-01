@@ -7,13 +7,14 @@ import hafarm
 
 class ClarisseFarm(hafarm.HaFarm):
     def __init__(self):
-        super(ClarisseFarm, self).__init__()
+        # Note: Force non-default version of backend support class.
+        super(ClarisseFarm, self).__init__(backend='Sungrid2')
         self.parms['command']     = '$CLARISSE_HOME/crender '
         self.parms['command_arg'] = []
         self.parms['output_picture'] = ""
         self.parms['req_license']    = 'clarisselic=1' 
         self.parms['req_resources']  = ''
-        self.parms['job_on_hold'] = True
+        self.parms['job_on_hold'] = False
         self.parms['frame_range_arg'] = ["-start_frame %s -end_frame %s", 'start_frame', 'start_frame']
 
         # First renderable camera we encounter will be the one we choose by default,
@@ -59,22 +60,22 @@ class ClarisseFarm(hafarm.HaFarm):
         return []
         #return ['pre_schedule(): %s ' % command]
 
-    def post_schedule(self):
-        """
-        """
-        # FIXME Ugly fix for wrong arguments' treatment inside sungrid.py
-        # Need to remove last argumetn from commandline...
-        script_path = os.path.join(self.parms['script_path'], self.parms['job_name'] + '.job')
-        script_path = os.path.expandvars(script_path)
-        with open(script_path) as file:
-            lines = file.readlines()
-            file.close()
-        with open(script_path, 'w') as file:
-            for line in lines:
-                if line.startswith("$CLARISSE_HOME"):
-                    line = line.split()[:-1]
-                    line = " ".join(line)
-                    line += '\n'
-                file.write(line)
-            file.close()
-        return []
+    # def post_schedule(self):
+    #     """
+    #     """
+    #     # FIXME Ugly fix for wrong arguments' treatment inside sungrid.py
+    #     # Need to remove last argumetn from commandline...
+    #     script_path = os.path.join(self.parms['script_path'], self.parms['job_name'] + '.job')
+    #     script_path = os.path.expandvars(script_path)
+    #     with open(script_path) as file:
+    #         lines = file.readlines()
+    #         file.close()
+    #     with open(script_path, 'w') as file:
+    #         for line in lines:
+    #             if line.startswith("$CLARISSE_HOME"):
+    #                 line = line.split()[:-1]
+    #                 line = " ".join(line)
+    #                 line += '\n'
+    #             file.write(line)
+    #         file.close()
+    #     return []
