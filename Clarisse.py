@@ -58,3 +58,23 @@ class ClarisseFarm(hafarm.HaFarm):
         # Any debugging info [object, outout]:
         return []
         #return ['pre_schedule(): %s ' % command]
+
+    def post_schedule(self):
+        """
+        """
+        # FIXME Ugly fix for wrong arguments' treatment inside sungrid.py
+        # Need to remove last argumetn from commandline...
+        script_path = os.path.join(self.parms['script_path'], self.parms['job_name'] + '.job')
+        script_path = os.path.expandvars(script_path)
+        with open(script_path) as file:
+            lines = file.readlines()
+            file.close()
+        with open(script_path, 'w') as file:
+            for line in lines:
+                if line.startswith("$CLARISSE_HOME"):
+                    line = line.split()[:-1]
+                    line = " ".join(line)
+                    line += '\n'
+                file.write(line)
+            file.close()
+        return []
