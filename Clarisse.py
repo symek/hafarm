@@ -17,16 +17,6 @@ class ClarisseFarm(hafarm.HaFarm):
         self.parms['job_on_hold'] = False
         self.parms['frame_range_arg'] = ["-start_frame %s -end_frame %s", 'start_frame', 'start_frame']
 
-        # First renderable camera we encounter will be the one we choose by default,
-        # So basically we don't support multicamera rendering deliberatly.
-        # for camera in maya.cmds.ls(type='camera'):
-        #     if maya.cmds.getAttr(camera + ".renderable"):
-        #         self.parms['target_list']    = [str(camera)]
-        #         break
-
-        # Frame range:
-        # self.parms['start_frame'] = int(maya.cmds.playbackOptions(query=True, ast=True))
-        # self.parms['end_frame']   = int(maya.cmds.playbackOptions(query=True, aet=True))
 
     def pre_schedule(self):
         """This method is called automatically before job submission by HaFarm.
@@ -49,33 +39,7 @@ class ClarisseFarm(hafarm.HaFarm):
         camera  = self.parms['target_list']
         command += [' -image %s ' % camera[0]]
 
-        # Add Render Layer to commanline:
-        # if self.parms['layer_list']: command += ["-l "]
-        # for layer in self.parms['layer_list']:
-        #     command += ['%s ' % layer]
-
         self.parms['command_arg'] = command
 
         # Any debugging info [object, outout]:
         return []
-        #return ['pre_schedule(): %s ' % command]
-
-    # def post_schedule(self):
-    #     """
-    #     """
-    #     # FIXME Ugly fix for wrong arguments' treatment inside sungrid.py
-    #     # Need to remove last argumetn from commandline...
-    #     script_path = os.path.join(self.parms['script_path'], self.parms['job_name'] + '.job')
-    #     script_path = os.path.expandvars(script_path)
-    #     with open(script_path) as file:
-    #         lines = file.readlines()
-    #         file.close()
-    #     with open(script_path, 'w') as file:
-    #         for line in lines:
-    #             if line.startswith("$CLARISSE_HOME"):
-    #                 line = line.split()[:-1]
-    #                 line = " ".join(line)
-    #                 line += '\n'
-    #             file.write(line)
-    #         file.close()
-    #     return []
