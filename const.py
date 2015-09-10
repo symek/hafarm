@@ -13,6 +13,7 @@ TILES_POSTFIX = 'tiles'
 MAX_CORES      = '@MAX_CORES/>'
 IINFO          = '$HFS/bin/iinfo -b -i '
 DEBUG          = 1
+TASK_ID_PADDED = '@TASK_ID_PADDED/>'
 
 
 
@@ -58,5 +59,6 @@ hafarm_defaults = {'start_frame': 1,
                    'frame_range_arg':["%s%s%s", '', '', ''],  # It should be ["-flag %s -flag %s", parm_key, parm_key], to produce:
                                           # '-s %s -e' % (self.parms['start_frame'], self.parms['end_frame']) for example (Maya)
                    'frame_list'    :'',    # It is sometimes useful to render specific frames, not ranges of it. Supported format: 1,2,3,4-10,11-20x2
-                   'max_running_tasks':1000 # Max number of tasks in a job run at the same time (1000 considered to be non limit.)
+                   'max_running_tasks':1000, # Max number of tasks in a job run at the same time (1000 considered to be non limit.)
+                   'frame_padding_length': 4 # Sometimes we need to repersent task_id with padddign enabled (task 1 as 0001). This var is helpful ATM (to be removed?)
                                         }

@@ -6,7 +6,7 @@ import glob
 import smtplib
 from email.mime.text import MIMEText
 from optparse import OptionParser
-import numpy
+#import numpy
 import json
 
 # Custom:
@@ -99,7 +99,7 @@ def help():
 def parseOptions():
     usage = "usage: %prog [options] arg"
     parser = OptionParser(usage)
-    parser.add_option("-i", "--image_pattern", dest="image_pattern",  action="store", type="string", default="", help="Bash patter for images to debug (image.*.exr).")
+    parser.add_option("-i", "--image_pattern", dest="image_pattern",  action="store", type="string", default="", help="Bash patter for images to debug ('image.*.exr').")
     parser.add_option("-j", "--job", dest="job_name",  action="store", type="string", default="", help="Job name debug belongs to.")
     parser.add_option("-m", "--send_email", dest='send_email', action='store_true', default=False, help="Sends report via email.")
     parser.add_option(""  , "--save_html", dest='save_html', action='store_true', default=False, help="Save report as html file.")
@@ -121,8 +121,9 @@ def generate_html(db, errors_only=False):
     html += "<body>"
     html += TABLE_HEADER
 
+
     # *_TAGS alter rows colors...
-    for frame_num in db['frames']:
+    for frame_num in sorted(db['frames']):
         frame = db['frames'][frame_num]
         if not frame['exists']:
             html += MISSING_FILE_TAG
@@ -317,16 +318,18 @@ def merge_reports(db, reports):
     # Whole report database should be little more generic, not hard coded.
     first = 1
     last  = 1
+    keys = []
     for frame in range(len(reports)):
         file = open(reports[frame])
         data = json.load(file)
         for key in data['frames']:
             db['frames'][key] = data['frames'][key]
-            fist = key if int(key) < first else first
-            last = key if int(key) > last  else last
+            keys.append(key)
 
-    db['first_frame'] = first
-    db['last_frame']  = last
+    keys.sort()
+    db['first_frame'] = keys[0]
+    db['last_frame']  = keys[-1]
+    db['pattern']     = utils.padding(data['pattern'], 'shell')[0]
     #db['pattern']     = os.path.splitext(reports[frame])[0]
 
     return db
@@ -337,10 +340,14 @@ def main():
     command line image tools chain. Stores result in html and sand optionally
     via email.
     """
-    options, args     = parseOptions()
+    options, args = parseOptions()
+    single_frame  = False
+
+    if not options.job_name:
+        options.job_name = os.getenv("JOB_NAME", "")
 
     # Image is required:
-    if not options.image_pattern and not options.image and not options.merge_reports:
+    if not options.image_pattern and not options.merge_reports:
         print help()
         sys.exit()
 
@@ -349,6 +356,14 @@ def main():
     pattern       = os.path.abspath(options.image_pattern)
     images        = glob.glob(pattern)
     images.sort()
+
+    # If pattern returned single frame, we assume user 
+    # wants to examine single file from a siquence. 
+    if len(images) == 1:
+        single_frame = True
+    if len(images) == 0:
+        print "No images found: %s" % options.image_pattern
+        sys.exit()
 
     # Get first and last frame on disk
     # TODO Add argument to overwrite framge range on disk.
@@ -369,6 +384,8 @@ def main():
     if options.merge_reports:
         # Merge json files previsouly generated:
         db = merge_reports(db, images)
+        # Get rid of .json at the end
+        sequence = utils.padding(os.path.splitext(images[-1])[0])
     else:
         # First run over all frames to gather per-frame information:
         db = proceed_sequence(sequence, db, first_frame, last_frame)
@@ -392,8 +409,14 @@ def main():
             path = os.path.expandvars(path)
 
             # Generate filename from image or job_name:
-            if not options.job_name:
+            # FIXME: This is little messy...
+            if 0 == 0: #not options.job_name:
                 tmp, report = os.path.split(sequence[0])
+
+                # Single frame mode shouldn't strip off padding, like does version above:
+                if single_frame: report  = images[0] + "."
+
+                # Add log path, frame and the extension acording to requested save format:
                 report      = os.path.join(path, report + "%s")
             else:
                 report      = os.path.join(path, options.job_name + ".%s")

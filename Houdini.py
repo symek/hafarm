@@ -364,6 +364,7 @@ def render_pressed(node):
     job_name = node.name()
     parent_job_name = []
     output_picture = ''
+    mantra_farm = None
 
     # a) Ignore all inputs and render from provided ifds:
     if node.parm("render_from_ifd").eval():
@@ -425,10 +426,17 @@ def render_pressed(node):
 
     # Proceed with post-render actions (debug, mp4, etc):
     # Debug images:
-    if node.parm("debug_images").eval():
-        debug_render = Batch.BatchFarm(job_name = job_name + "_debug", queue = queue, parent_job_name = parent_job_name)
-        debug_render.debug_images(output_picture)
+    if node.parm("debug_images").eval() and mantra_farm:
+        # Generate report per file:
+        debug_render = Batch.BatchFarm(job_name = job_name + "_debug", queue = queue, parent_array_name = parent_job_name)
+        debug_render.debug_image(output_picture)
+        debug_render.parms['start_frame'] = mantra_farm.parms['start_frame']
+        debug_render.parms['end_frame']   = mantra_farm.parms['end_frame']
         debug_render.render()
+        # Merge reports:
+        merger = Batch.BatchFarm(job_name = job_name + "_mergeReports", queue = queue, parent_job_name = [debug_render.parms['job_name']])
+        merger.merge_reports(output_picture)
+        merger.render()
 
     # Make a movie from proxy frames:
     if node.parm("make_proxy").eval() and node.parm("make_movie").eval():

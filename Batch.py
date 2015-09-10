@@ -13,13 +13,14 @@ from hafarm import const
 class BatchFarm(hafarm.HaFarm):
     '''Performs arbitrary script on farm. Also encapsulates utility functions for handling usual tasks.
     like tile merging, dubuging renders etc.'''
-    def __init__(self, job_name='', parent_job_name=[], queue='', command='', command_arg=''):
+    def __init__(self, job_name='', parent_job_name=[], parent_array_name=[], queue='', command='', command_arg=''):
         super(BatchFarm, self).__init__()
         self.parms['queue']          = queue
         self.parms['job_name']       = job_name
         self.parms['command']        = command
         self.parms['command_arg']    = [command_arg]
         self.parms['hold_jid']       = parent_job_name
+        self.parms['hold_jid_ad']    = parent_array_name
         self.parms['ignore_check']   = True
         self.parms['slots']          = 1
         self.parms['req_resources'] = ''
@@ -72,7 +73,7 @@ class BatchFarm(hafarm.HaFarm):
         self.parms['end_frame']   = 1 
         return command
 
-    def debug_images(self, filename):
+    def iinfo_images(self, filename):
         '''By using iinfo utility inspect filename (usually renders).
         '''
         details = utils.padding(filename, 'shell')
@@ -82,15 +83,30 @@ class BatchFarm(hafarm.HaFarm):
         self.parms['end_frame']   = 1
         self.parms['email_stdout'] = True
 
-    def debug_images2(self, filename):
+    def debug_image(self, filename, start=None, end=None):
         '''By using iinfo utility inspect filename (usually renders).
         '''
-        details = utils.padding(filename, 'shell')
+        details = utils.padding(filename)
+        self.parms['scene_file'] =  details[0] + const.TASK_ID_PADDED + details[3]
+        self.parms['command']    = '$HAFARM_HOME/scripts/debug_images.py --save_json -i '
+        if start and end:
+            self.parms['start_frame'] = start
+            self.parms['end_frame']   = end
+       
 
-        self.parms['command'] = '$HAFARM_HOME/scripts/debug_images.py -m -i "%s"' % details[0]
+    def merge_reports(self, filename, send_email=True):
+        ''' Merges previously generated debug reports per frame, and do various things
+            with that, send_emials, save on dist as json/html etc.
+        '''
+        # 
+        send_email = '--send_email' if send_email else ""
+        # 
+        details = utils.padding(filename, 'shell')
+        self.parms['scene_file'] =  '"' + details[0] + '.json"' 
+        self.parms['command']    = '$HAFARM_HOME/scripts/debug_images.py %s --merge_reports --save_html -i ' % send_email
         self.parms['start_frame'] = 1
         self.parms['end_frame']   = 1
-        self.parms['email_stdout'] = True
+
 
     def make_movie(self, filename):
         '''Make a movie from custom files. 

@@ -89,6 +89,10 @@ class Sungrid(RenderManager):
         # FIXME: Change hafarm specific variables for SGE once. Currently we do it manually. 
         scene_file = self.parms['scene_file'].replace(const.TASK_ID, '$SGE_TASK_ID')
 
+        # There are cases where TASK_ID should be padded. 
+        # TODO: I don't know how to specify padding length thought atm
+        scene_file = scene_file.replace(const.TASK_ID_PADDED,  '$(python -c "print \'$SGE_TASK_ID\'.zfill(%s)")' % self.parms['frame_padding_length'])
+
         with open(script_path, 'w') as file:
 
             # This is standard:
