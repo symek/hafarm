@@ -106,3 +106,28 @@ def padding(file, format=None, _frame=None):
     if _frame:
         return "".join(l[:-2]) + str(_frame).zfill(length) + ext, frame, length, ext
     return "".join(l[:-2]), frame, length, ext
+
+
+def parse_qacct(output, db=None):
+    '''Parses SGE qacct utility output to Python dictonary.
+    '''
+    if not db: db = {}
+    if not 'frames' in db:
+        db['frames'] = {}
+    frames_blocks = output.split('==============================================================')
+    for block in frames_blocks[1:]:
+        lines = block.split('\n')
+        frame = {}
+        for line in lines:
+            line = line.strip()
+            if not line:
+                continue
+            line_list = line.split()
+            if len(line_list) == 2:
+                var, value = line_list
+                var = var.strip()
+                value = value.strip()
+                frame[var] = value
+        db['frames'][int(frame['taskid'])] = frame
+
+    return db

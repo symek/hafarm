@@ -65,17 +65,25 @@ TABLE_HEADER = """
 <table id="t01">
   <tr>
     <th>Frame</th>
-    <th>On disk</th>        
-    <th>Integrity</th>
+    <th>On disk?</th>        
+    <th>Integrity OK?</th>
     <th>Nans</th>
     <th>Infs</th>
     <th>Size</th>
-    <th>Small file</th>
+    <th>Small file?</th>
+    <th>Hostname</th>
+    <th>CPU Cores time</th>
+    <th>Max VMEM</th>
+    <th>IFD Size</th>
   </tr>"""
 
 ROW =  """
         <td>%s</td>
         <td>%s</td>       
+        <td>%s</td>
+        <td>%s</td>
+        <td>%s</td>
+        <td>%s</td>
         <td>%s</td>
         <td>%s</td>
         <td>%s</td>
@@ -105,6 +113,8 @@ def parseOptions():
     parser.add_option(""  , "--save_html", dest='save_html', action='store_true', default=False, help="Save report as html file.")
     parser.add_option(""  , "--save_json", dest='save_json', action='store_true', default=False, help="Save report as json file.")
     parser.add_option("-p", "--print", dest='print_report', action='store_true', default=True, help="Prints report on stdout.")
+    parser.add_option("-o", '--output', dest='output_dir', action='store', default=None, type='string', help='Output folder for a reports.')
+    parser.add_option("",   '--ifd_path', dest='ifd_path', action='store', default=None, type='string', help='Path to look for IFD files when IFD stats are requested.')
     parser.add_option("-d", "--display", dest='display_report', action='store_true', default=False, help="Displays report in web browser.")
     parser.add_option("-e", "--errors_only", dest='errors_only', action='store_true', default=False, help="Focus only on errors in report.")
     parser.add_option("",   "--merge_reports", dest='merge_reports', action='store_true', default=False, help='Merge *.json files not generate one.')
@@ -113,18 +123,34 @@ def parseOptions():
 
 
 
-def generate_html(db, errors_only=False):
+def generate_html(db, render_stats=None, ifd_stats=None, errors_only=False):
     """Interate over rows in db and generate html document from that.
     """
+    def bytes_to_megabytes(bytes, rounded=3):
+        return round(int(bytes) / (1024.0*1024.0), rounded)
+
     html = ""
     html += HEAD
     html += "<body>"
     html += TABLE_HEADER
 
+    # Fallbacks:
+    r_stat = {'hostname': '', 'cpu': 0.0, 'maxvmem': 0.0}
+    i_stat = {'ifd_size': 0.0}
 
     # *_TAGS alter rows colors...
     for frame_num in sorted(db['frames']):
         frame = db['frames'][frame_num]
+        # Get handle to per frame render stats
+        if render_stats:
+            if frame_num in render_stats['frames']:
+                r_stat = render_stats['frames'][frame_num]
+        # Get handle to per ifd render stats:
+        if ifd_stats:
+            if frame_num in ifd_stats['frames']:
+                i_stat = ifd_stats['frames'][frame_num]
+
+        # Set color for problematic fields:
         if not frame['exists']:
             html += MISSING_FILE_TAG
         elif not frame['integrity']:
@@ -135,10 +161,16 @@ def generate_html(db, errors_only=False):
             html += NORMAL_FILE_TAG
 
         # Generate row:
-        html += ROW % (frame_num, frame['exists'], 
-                       frame['integrity'], frame['nans'], 
-                       frame['infs'], frame['size'], 
-                       frame['small_frame'])
+        html += ROW % (frame_num, 
+                       frame['exists'], 
+                       frame['integrity'], 
+                       frame['nans'], 
+                       frame['infs'], 
+                       str(bytes_to_megabytes(frame['size'])) + ' MB', 
+                       frame['small_frame'], r_stat['hostname'], 
+                       str(round(float(r_stat['cpu'])/60, 3)) + " min", 
+                       r_stat['maxvmem'],
+                       str(bytes_to_megabytes(i_stat['ifd_size'], 5)) + ' MB')
 
     html += FOOT
 
@@ -323,17 +355,41 @@ def merge_reports(db, reports):
         file = open(reports[frame])
         data = json.load(file)
         for key in data['frames']:
-            db['frames'][key] = data['frames'][key]
-            keys.append(key)
+            db['frames'][int(key)] = data['frames'][key] # Json turns any key into string.
+            keys.append(int(key))
 
     keys.sort()
     db['first_frame'] = keys[0]
     db['last_frame']  = keys[-1]
     db['pattern']     = utils.padding(data['pattern'], 'shell')[0]
-    #db['pattern']     = os.path.splitext(reports[frame])[0]
+    db['job_name']    = data['job_name']
 
     return db
 
+
+def get_render_stats(job_name):
+    """
+    Retrives render statistics from render manager.
+    """
+    import hafarm
+    farm = hafarm.HaFarm()
+    return farm.get_job_stats(job_name)
+
+def get_ifd_stats(job_name, ifd_path):
+    stats={}
+    stats['frames'] = {}
+    # Lets find our ifd files:
+    job_name = job_name.rstrip("_mantra")
+    pattern  = os.path.join(ifd_path, job_name)
+    pattern  += ".*.ifd" 
+    ifds     = glob.glob(pattern)
+    ifds.sort()
+    for ifd in ifds:
+        seq = utils.padding(ifd)
+        stats['frames'][seq[1]] = {}
+        size = os.path.getsize(ifd)
+        stats['frames'][seq[1]]['ifd_size'] = size
+    return stats
 
 def main():
     """Run over files that match pattern to scan their qualities with
@@ -342,6 +398,8 @@ def main():
     """
     options, args = parseOptions()
     single_frame  = False
+    render_stats  = None
+    ifd_stats     = None
 
     if not options.job_name:
         options.job_name = os.getenv("JOB_NAME", "")
@@ -361,6 +419,7 @@ def main():
     # wants to examine single file from a siquence. 
     if len(images) == 1:
         single_frame = True
+        print "Single frame found."
     if len(images) == 0:
         print "No images found: %s" % options.image_pattern
         sys.exit()
@@ -384,6 +443,12 @@ def main():
     if options.merge_reports:
         # Merge json files previsouly generated:
         db = merge_reports(db, images)
+        # Get render statistics:
+        render_stats = get_render_stats(db['job_name'])
+        # Get IFD (Mantra specific) statistics:
+        if options.ifd_path:
+            ifd_stats = get_ifd_stats(db['job_name'], options.ifd_path)
+
         # Get rid of .json at the end
         sequence = utils.padding(os.path.splitext(images[-1])[0])
     else:
@@ -397,7 +462,7 @@ def main():
     # Present report:
     if options.save_html or options.send_email \
     or options.display_report or options.save_json:
-        html = generate_html(db)
+        html = generate_html(db, render_stats, ifd_stats)
 
         # Send report by email:
         if options.send_email:
@@ -408,18 +473,13 @@ def main():
             path = const.hafarm_defaults['log_path']
             path = os.path.expandvars(path)
 
-            # Generate filename from image or job_name:
             # FIXME: This is little messy...
-            if 0 == 0: #not options.job_name:
-                tmp, report = os.path.split(sequence[0])
-
-                # Single frame mode shouldn't strip off padding, like does version above:
-                if single_frame: report  = images[0] + "."
-
-                # Add log path, frame and the extension acording to requested save format:
-                report      = os.path.join(path, report + "%s")
-            else:
-                report      = os.path.join(path, options.job_name + ".%s")
+            tmp, report = os.path.split(sequence[0])
+            # Single frame mode shouldn't strip off padding, like does version above:
+            if single_frame: report  = os.path.split(images[0] + ".")[1]
+            # Add log path, frame and the extension acording to requested save format:
+            report = os.path.join(path, report + "%s")
+          
 
             # Write it down:
             if options.save_html: 

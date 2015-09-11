@@ -86,24 +86,30 @@ class BatchFarm(hafarm.HaFarm):
     def debug_image(self, filename, start=None, end=None):
         '''By using iinfo utility inspect filename (usually renders).
         '''
+        # TODO: Need to rethink that
+        job_name = self.parms['job_name'].replace("_debug", "")
         details = utils.padding(filename)
         self.parms['scene_file'] =  details[0] + const.TASK_ID_PADDED + details[3]
-        self.parms['command']    = '$HAFARM_HOME/scripts/debug_images.py --save_json -i '
+        self.parms['command']    = '$HAFARM_HOME/scripts/debug_images.py --job %s --save_json -i ' % job_name
         if start and end:
             self.parms['start_frame'] = start
             self.parms['end_frame']   = end
        
 
-    def merge_reports(self, filename, send_email=True):
+    def merge_reports(self, filename, ifd_path=None, send_email=True):
         ''' Merges previously generated debug reports per frame, and do various things
             with that, send_emials, save on dist as json/html etc.
         '''
         # 
         send_email = '--send_email' if send_email else ""
+        ifd_path   = '--ifd_path %s' % ifd_path if ifd_path else ""
         # 
+        path, filename = os.path.split(filename)
         details = utils.padding(filename, 'shell')
-        self.parms['scene_file'] =  '"' + details[0] + '.json"' 
-        self.parms['command']    = '$HAFARM_HOME/scripts/debug_images.py %s --merge_reports --save_html -i ' % send_email
+        log_path = os.path.expandvars(self.parms['log_path'])
+
+        self.parms['scene_file'] =  '"' + os.path.join(log_path, details[0]) + '.json"' 
+        self.parms['command']    = '$HAFARM_HOME/scripts/debug_images.py %s %s --merge_reports --save_html -i ' % (send_email, ifd_path)
         self.parms['start_frame'] = 1
         self.parms['end_frame']   = 1
 
