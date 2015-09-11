@@ -280,6 +280,15 @@ class Sungrid(RenderManager):
         #TODO: get this from sge with qconf -shgrpl
         return []
 
+    def get_job_stats(self, job_name):
+        import subprocess
+        sp = subprocess.Popen(['qacct', '-j', job_name], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        out, err = sp.communicate()
+        db = {}
+        if not 'error' in err:
+            return utils.parse_qacct(out, db)
+        return
+
     def test_connection(self):
         return
         

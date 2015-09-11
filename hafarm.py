@@ -138,6 +138,11 @@ class HaFarm(object):
         """
         return self.manager.get_queue_list()
 
+    def get_job_stats(self, job_name):
+        """Returns job's statistics from render manger.
+        """
+        return self.manager.get_job_stats(job_name)
+
     def pre_schedule(self):
         """This should be provided by derived classes to perform any application specific actions before the submit.
         """

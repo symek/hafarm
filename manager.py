@@ -41,6 +41,11 @@ class RenderManager(object):
         '''Get the list of all hosts in render farm. '''
         return
 
+    @abc.abstractmethod
+    def get_job_stats(self, job_id):
+        '''Get detailed statistics of finshed jobs.'''
+        return {}
+
 
 
 class DummyManager(RenderManager):
@@ -65,6 +70,9 @@ class DummyManager(RenderManager):
 
     def get_group_list(self):
         return []
+        
+    def get_job_stats(self, job_id):
+        return {}
 
 
 
