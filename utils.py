@@ -63,6 +63,31 @@ def convert_seconds_to_SGEDate(seconds):
     format = '%Y%m%d%H%M.%S'
     return strftime(format, date)
 
+def convert_asctime_to_seconds(time_string):
+    '''Converts time in asc format to seconds'''
+    from time import strptime, mktime
+    format = '%a %b %d %H:%M:%S %Y'
+    return mktime(strptime(time_string, format))
+
+def compute_time_lapse(start, end=None):
+    """Taking two inputs in seconds, compute a difference
+        and return as pretty string.
+    """
+    from datetime import timedelta
+    from time import time
+
+    # We may want to compute interval up to now:
+    if not end:
+        end = time()
+
+    # We accept only floats... 
+    if not isinstance(start, type(0.0))\
+    or not isinstance(end, type(0.0)):
+        return 
+
+    result = timedelta(seconds=int(end)) - timedelta(seconds=int(start))
+    return str(result)
+
 
 def compute_delay_time(hours, now=None):
     '''Computes delay from now to now+hours. Returns time in seconds from epoch.'''
@@ -123,8 +148,8 @@ def parse_qacct(output, db=None):
             if not line:
                 continue
             line_list = line.split()
-            if len(line_list) == 2:
-                var, value = line_list
+            if len(line_list) >= 2:
+                var, value = (line_list[0], " ".join(line_list[1:]))
                 var = var.strip()
                 value = value.strip()
                 frame[var] = value

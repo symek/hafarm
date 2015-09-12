@@ -96,7 +96,7 @@ class BatchFarm(hafarm.HaFarm):
             self.parms['end_frame']   = end
        
 
-    def merge_reports(self, filename, ifd_path=None, send_email=True):
+    def merge_reports(self, filename, ifd_path=None, send_email=True, mad_threshold=5.0):
         ''' Merges previously generated debug reports per frame, and do various things
             with that, send_emials, save on dist as json/html etc.
         '''
@@ -109,7 +109,7 @@ class BatchFarm(hafarm.HaFarm):
         log_path = os.path.expandvars(self.parms['log_path'])
 
         self.parms['scene_file'] =  '"' + os.path.join(log_path, details[0]) + '.json"' 
-        self.parms['command']    = '$HAFARM_HOME/scripts/debug_images.py %s %s --merge_reports --save_html -i ' % (send_email, ifd_path)
+        self.parms['command']    = '$HAFARM_HOME/scripts/debug_images.py %s %s --merge_reports --mad_threshold %s --save_html -i ' % (send_email, ifd_path, mad_threshold)
         self.parms['start_frame'] = 1
         self.parms['end_frame']   = 1
 

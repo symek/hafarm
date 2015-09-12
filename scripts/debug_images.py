@@ -6,7 +6,7 @@ import glob
 import smtplib
 from email.mime.text import MIMEText
 from optparse import OptionParser
-#import numpy
+import numpy
 import json
 
 # Custom:
@@ -72,8 +72,8 @@ TABLE_HEADER = """
     <th>Size</th>
     <th>Small file?</th>
     <th>Hostname</th>
-    <th>CPU Cores time</th>
-    <th>Max VMEM</th>
+    <th>CPU time</th>
+    <th>RAM used</th>
     <th>IFD Size</th>
   </tr>"""
 
@@ -118,6 +118,7 @@ def parseOptions():
     parser.add_option("-d", "--display", dest='display_report', action='store_true', default=False, help="Displays report in web browser.")
     parser.add_option("-e", "--errors_only", dest='errors_only', action='store_true', default=False, help="Focus only on errors in report.")
     parser.add_option("",   "--merge_reports", dest='merge_reports', action='store_true', default=False, help='Merge *.json files not generate one.')
+    parser.add_option('',   "--mad_threshold", dest='mad_threshold', action='store', default=5.0, type=float, help='Threshold for Median-Absolute-Deviation based small frame estimator.')
     (opts, args) = parser.parse_args(sys.argv[1:])
     return opts, args
 
@@ -135,7 +136,7 @@ def generate_html(db, render_stats=None, ifd_stats=None, errors_only=False):
     html += TABLE_HEADER
 
     # Fallbacks:
-    r_stat = {'hostname': '', 'cpu': 0.0, 'maxvmem': 0.0}
+    r_stat = {'hostname': '', 'cpu': 0.0, 'mem': 0.0, 'start_time': 'Sat Sep 12 17:24:32 2015', 'end_time': 'Sat Sep 12 17:24:32 2015'}
     i_stat = {'ifd_size': 0.0}
 
     # *_TAGS alter rows colors...
@@ -160,6 +161,13 @@ def generate_html(db, render_stats=None, ifd_stats=None, errors_only=False):
         else:
             html += NORMAL_FILE_TAG
 
+        # TODO: This is SGE specific.
+        # Convert details returend by qaact into seconds and then compute render time
+        # represented as pretty string.
+        start_time  = utils.convert_asctime_to_seconds(r_stat['start_time'])
+        end_time    = utils.convert_asctime_to_seconds(r_stat['end_time'])
+        render_time = utils.compute_time_lapse(start_time, end_time)
+
         # Generate row:
         html += ROW % (frame_num, 
                        frame['exists'], 
@@ -168,8 +176,8 @@ def generate_html(db, render_stats=None, ifd_stats=None, errors_only=False):
                        frame['infs'], 
                        str(bytes_to_megabytes(frame['size'])) + ' MB', 
                        frame['small_frame'], r_stat['hostname'], 
-                       str(round(float(r_stat['cpu'])/60, 3)) + " min", 
-                       r_stat['maxvmem'],
+                       render_time , # str(round(float(r_stat['cpu'])/60, 3)) + " min"
+                       str(round(float(r_stat['mem']) / 1024, 2)) + " GB",
                        str(bytes_to_megabytes(i_stat['ifd_size'], 5)) + ' MB')
 
     html += FOOT
@@ -222,47 +230,46 @@ def pca(data,nRedDim=0,normalise=1):
     y=np.transpose(np.dot(evecs,x))+m
     return x,y,evals,evecs
 
-def check_small_frames(db):
+def doubleMADsfromMedian(y,thresh=2.0):
+    '''http://stackoverflow.com/questions/22354094/\
+    pythonic-way-of-detecting-outliers-in-one-dimensional-observation-data'''
+    import numpy as np
+    m = np.median(y)
+    abs_dev = np.abs(y - m)
+    left_mad = np.median(abs_dev[y<=m])
+    right_mad = np.median(abs_dev[y>=m])
+    y_mad = np.zeros(len(y))
+    y_mad[y < m] = left_mad
+    y_mad[y > m] = right_mad
+    modified_z_score = 0.6745 * abs_dev / y_mad
+    modified_z_score[y == m] = 0
+    return modified_z_score > thresh
+
+def check_small_frames(db, threshold):
     """Check for suspecious differences in frames size.
+       I currently look for outlies in siize derivatives.
+       Not very  usefull...
     """
-    # TODO: This approach doesn't work.
-    # We should compute rate of change in frame size
-    # and warn in image size overshoot expect change. 
-
     # Check if some files aren't too small:
-    sizes     = db['file_sizes']
-    # narray    = numpy.array(db['file_sizes'])
-    # grad_array= numpy.gradient(narray)
-    # numpy.savetxt("/tmp/narray.chan", grad_array)
-    # numpy.savetxt("/tmp/narray2.chan", narray)
-    # avg_rate  = numpy.mean(grad_array)
-    # x         = numpy.array(range(len(sizes)))
-    # pca_array = numpy.vstack((x, grad_array))
-
-    # # Extend size array +1 1+ to compute gradients:
-    # sizes.append(sizes[-1]+grad_array[-1])
-    # sizes.insert(0, sizes[0]+grad_array[0])
-
-    # x, y, eigenvectors, eigenvalues = pca(pca_array)
-    # print x
-    # print y
-    # print eigenvalues
-    # print eigenvectors
-
+    sizes = db['file_sizes']
+    slope = []
     db['small_frames'] = []
+    _max =  10000.0 #/ max(sizes) * 1000.0
+    for idx in range(len(sizes)):
+        current = sizes[idx] / _max
+        if idx == len(sizes) -1 :
+            next =  (current + (current - sizes[idx-1] / _max) ) 
+        else:
+            next    = sizes[idx+1] /  _max
+        slope.append(abs(next - current))
 
-    index = 0
-    for frame_num in db['frames']:
-            frame = db['frames'][frame_num]
-            size = frame['size']
-            prev = sizes[index-1]
-            next = sizes[index+1]
-            x = size - prev
-            y = size - next
-            if abs(grad_array[index]) > abs(avg_rate) * 5:
-                db['small_frames'].append(frame_num)
-                db['frames'][frame_num]['small_frame'] = True
-            index += 1
+    # TODO: We need curve fittign, but the only way I know to do that requries scipy > 0.9.
+    is_outlier = doubleMADsfromMedian(slope, threshold)
+    for v in range(len(is_outlier)):
+        if is_outlier[v]:
+            db['frames'][v+1]['small_frame'] = True
+            db['small_frames'] += [v]
+    #
     return db
 
 def proceed_sequence(sequence, db, first_frame, last_frame):
@@ -351,11 +358,19 @@ def merge_reports(db, reports):
     first = 1
     last  = 1
     keys = []
+    # We want to retrieve data from segments:
+    if not 'file_sizes' in db.keys():
+        db['file_sizes'] = []
+    if not 'missing_frames' in db.keys():
+        db['missing_frames'] = []
+
     for frame in range(len(reports)):
         file = open(reports[frame])
         data = json.load(file)
         for key in data['frames']:
             db['frames'][int(key)] = data['frames'][key] # Json turns any key into string.
+            db['file_sizes'] += data['file_sizes']
+            db['missing_frames'] += data['missing_frames']
             keys.append(int(key))
 
     keys.sort()
@@ -445,6 +460,9 @@ def main():
         db = merge_reports(db, images)
         # Get render statistics:
         render_stats = get_render_stats(db['job_name'])
+        # Find suspicion small files:
+        db = check_small_frames(db, options.mad_threshold)
+        #print render_stats
         # Get IFD (Mantra specific) statistics:
         if options.ifd_path:
             ifd_stats = get_ifd_stats(db['job_name'], options.ifd_path)
@@ -455,8 +473,6 @@ def main():
         # First run over all frames to gather per-frame information:
         db = proceed_sequence(sequence, db, first_frame, last_frame)
 
-    # # Compute avarage size of files in a sequence.
-    # db = check_small_frames(db)
 
 
     # Present report:
