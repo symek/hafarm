@@ -108,7 +108,7 @@ class BatchFarm(hafarm.HaFarm):
         details = utils.padding(filename, 'shell')
         log_path = os.path.expandvars(self.parms['log_path'])
         self.parms['scene_file'] =  os.path.join(log_path, details[0]) + '.json'
-        self.parms['command']    = '$HAFARM_HOME/scripts/generate_render_reports.py %s %s --mad_threshold %s --save_html -i ' % (send_email, ifd_path, mad_threshold)
+        self.parms['command']    = '$HAFARM_HOME/scripts/generate_render_report.py %s %s --mad_threshold %s --save_html -i ' % (send_email, ifd_path, mad_threshold)
         self.parms['start_frame'] = 1
         self.parms['end_frame']   = 1
 
