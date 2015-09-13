@@ -91,11 +91,23 @@ ROW =  """
         <td>%s</td>
         </tr>"""
 
+INFO_TABLE_HEADER = """
+        <table table style="width:400px">
+        <tr>
+        <th>NAME</th>
+        <th>VALUE</th>        
+        </tr>"""
+
+INFO_ROW = """
+        <td>%s</td>
+        <td>%s</td>
+        </tr>"""
 
 NORMAL_FILE_TAG = "<tr>"
 MISSING_FILE_TAG = """<tr class="missing_file">"""
 BAD_FILE_TAG     = """<tr class="bad_file">"""
 SMALL_FILE_TAG   = """<tr class="small_frame">"""
+LINK_FILE        = """<a href="%s">%s</a>"""
 
 
 def help():
@@ -127,13 +139,18 @@ def parseOptions():
 def generate_html(db, render_stats=None, ifd_stats=None, errors_only=False):
     """Interate over rows in db and generate html document from that.
     """
+    from time import ctime
     def bytes_to_megabytes(bytes, rounded=3):
         return round(int(bytes) / (1024.0*1024.0), rounded)
 
     html = ""
     html += HEAD
     html += "<body>"
-    html += TABLE_HEADER
+    table = ""
+    table += TABLE_HEADER
+
+    #globals
+    render_times = []
 
     # Fallbacks:
     r_stat = {'hostname': '', 'cpu': 0.0, 'mem': 0.0, 'start_time': 'Sat Sep 12 17:24:32 2015', 'end_time': 'Sat Sep 12 17:24:32 2015'}
@@ -153,13 +170,13 @@ def generate_html(db, render_stats=None, ifd_stats=None, errors_only=False):
 
         # Set color for problematic fields:
         if not frame['exists']:
-            html += MISSING_FILE_TAG
+            table += MISSING_FILE_TAG
         elif not frame['integrity']:
-            html += BAD_FILE_TAG
+            table += BAD_FILE_TAG
         elif frame['small_frame']:
-            html += SMALL_FILE_TAG
+            table += SMALL_FILE_TAG
         else:
-            html += NORMAL_FILE_TAG
+            table += NORMAL_FILE_TAG
 
         # TODO: This is SGE specific.
         # Convert details returend by qaact into seconds and then compute render time
@@ -167,21 +184,36 @@ def generate_html(db, render_stats=None, ifd_stats=None, errors_only=False):
         start_time  = utils.convert_asctime_to_seconds(r_stat['start_time'])
         end_time    = utils.convert_asctime_to_seconds(r_stat['end_time'])
         render_time = utils.compute_time_lapse(start_time, end_time)
+        render_times += [start_time, end_time]
 
         # Generate row:
-        html += ROW % (frame_num, 
+        table += ROW % (frame_num, 
                        frame['exists'], 
                        frame['integrity'], 
                        frame['nans'], 
                        frame['infs'], 
                        str(bytes_to_megabytes(frame['size'])) + ' MB', 
-                       frame['small_frame'], r_stat['hostname'], 
-                       render_time , # str(round(float(r_stat['cpu'])/60, 3)) + " min"
+                       frame['small_frame'], 
+                       r_stat['hostname'], 
+                       render_time , 
                        str(round(float(r_stat['mem']) / 1024, 2)) + " GB",
                        str(bytes_to_megabytes(i_stat['ifd_size'], 5)) + ' MB')
 
+    # More info for an user:
+    render_times.sort()
+    info = ""
+    info += INFO_TABLE_HEADER
+    info += INFO_ROW % ('Job', db['job_name'])
+    info += INFO_ROW % ('User', r_stat['owner'])
+    info += INFO_ROW % ('Submitted', r_stat['qsub_time'])
+    info += INFO_ROW % ('Started', ctime(render_times[0]))
+    info += INFO_ROW % ('Ended: ', ctime(render_times[-1]))
+    info += INFO_ROW % ('Missing', ", ".join([str(f) for f in db['missing_frames']]))
+    info += INFO_ROW % ('Path', LINK_FILE % ('file://'+db['pattern'], db['pattern']))
+    html += info
+    # Finally add main table and return
+    html += table
     html += FOOT
-
     return html
 
 
