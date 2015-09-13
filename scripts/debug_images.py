@@ -3,111 +3,13 @@
 import os
 import sys
 import glob
-import smtplib
-from email.mime.text import MIMEText
 from optparse import OptionParser
-import numpy
 import json
 
 # Custom:
 import fileseq
 from hafarm import utils
 from hafarm import const
-
-
-
-HEAD = """<!DOCTYPE html>
-<html>
-
-<head>
-<style>
-table {
-    width:100%;
-}
-table, th, td {
-    border: 1px solid black;
-    border-collapse: collapse;
-}
-th, td {
-    padding: 5px;
-    text-align: left;
-}
-table#t01 tr:nth-child(even) {
-    background-color: #eee;
-}
-table#t01 tr:nth-child(odd) {
-   background-color:#fff;
-}
-table#t01 th    {
-    background-color: black;
-    color: white;
-}
-
-tr.small_frame td {
-    background-color: #CC6600; color: black;
-}
-tr.bad_file td {
-    background-color: #CC9900; color: black;
-}
-tr.missing_file td {
-    background-color: #CC0000; color: black;
-
-}
-}
-</style>
-</head>"""
-
-
-FOOT = """</body></html>"""
-
-
-TABLE_HEADER = """
-<table id="t01">
-  <tr>
-    <th>Frame</th>
-    <th>On disk?</th>        
-    <th>Integrity OK?</th>
-    <th>Nans</th>
-    <th>Infs</th>
-    <th>Size</th>
-    <th>Small file?</th>
-    <th>Hostname</th>
-    <th>CPU time</th>
-    <th>RAM used</th>
-    <th>IFD Size</th>
-  </tr>"""
-
-ROW =  """
-        <td>%s</td>
-        <td>%s</td>       
-        <td>%s</td>
-        <td>%s</td>
-        <td>%s</td>
-        <td>%s</td>
-        <td>%s</td>
-        <td>%s</td>
-        <td>%s</td>
-        <td>%s</td>
-        <td>%s</td>
-        </tr>"""
-
-INFO_TABLE_HEADER = """
-        <table table style="width:400px">
-        <tr>
-        <th>NAME</th>
-        <th>VALUE</th>        
-        </tr>"""
-
-INFO_ROW = """
-        <td>%s</td>
-        <td>%s</td>
-        </tr>"""
-
-NORMAL_FILE_TAG = "<tr>"
-MISSING_FILE_TAG = """<tr class="missing_file">"""
-BAD_FILE_TAG     = """<tr class="bad_file">"""
-SMALL_FILE_TAG   = """<tr class="small_frame">"""
-LINK_FILE        = """<a href="%s">%s</a>"""
 
 
 def help():
@@ -120,194 +22,28 @@ def parseOptions():
     usage = "usage: %prog [options] arg"
     parser = OptionParser(usage)
     parser.add_option("-i", "--image_pattern", dest="image_pattern",  action="store", type="string", default="", help="Bash patter for images to debug ('image.*.exr').")
-    parser.add_option("-j", "--job", dest="job_name",  action="store", type="string", default="", help="Job name debug belongs to.")
-    parser.add_option("-m", "--send_email", dest='send_email', action='store_true', default=False, help="Sends report via email.")
-    parser.add_option(""  , "--save_html", dest='save_html', action='store_true', default=False, help="Save report as html file.")
+    parser.add_option("-j", "--job", dest="job_name",  action="store", type="string", default="", help="Job name debug referes to. It should be job name of frames to be proceed.")
     parser.add_option(""  , "--save_json", dest='save_json', action='store_true', default=False, help="Save report as json file.")
     parser.add_option("-p", "--print", dest='print_report', action='store_true', default=True, help="Prints report on stdout.")
     parser.add_option("-o", '--output', dest='output_dir', action='store', default=None, type='string', help='Output folder for a reports.')
-    parser.add_option("",   '--ifd_path', dest='ifd_path', action='store', default=None, type='string', help='Path to look for IFD files when IFD stats are requested.')
-    parser.add_option("-d", "--display", dest='display_report', action='store_true', default=False, help="Displays report in web browser.")
-    parser.add_option("-e", "--errors_only", dest='errors_only', action='store_true', default=False, help="Focus only on errors in report.")
-    parser.add_option("",   "--merge_reports", dest='merge_reports', action='store_true', default=False, help='Merge *.json files not generate one.')
-    parser.add_option('',   "--mad_threshold", dest='mad_threshold', action='store', default=5.0, type=float, help='Threshold for Median-Absolute-Deviation based small frame estimator.')
+    parser.add_option("-s", '--start_frame', dest='start_frame', action='store', default=None, type='string', help='Overwrites start frame to process.')
+    parser.add_option("-e", '--end_frame', dest='end_frame', action='store', default=None, type='string', help='Overwrites end fram to process.')
+
     (opts, args) = parser.parse_args(sys.argv[1:])
     return opts, args
 
 
 
-def generate_html(db, render_stats=None, ifd_stats=None, errors_only=False):
-    """Interate over rows in db and generate html document from that.
-    """
-    from time import ctime
-    def bytes_to_megabytes(bytes, rounded=3):
-        return round(int(bytes) / (1024.0*1024.0), rounded)
-
-    html = ""
-    html += HEAD
-    html += "<body>"
-    table = ""
-    table += TABLE_HEADER
-
-    #globals
-    render_times = []
-
-    # Fallbacks:
-    r_stat = {'hostname': '', 'cpu': 0.0, 'mem': 0.0, 'start_time': 'Sat Sep 12 17:24:32 2015', 'end_time': 'Sat Sep 12 17:24:32 2015'}
-    i_stat = {'ifd_size': 0.0}
-
-    # *_TAGS alter rows colors...
-    for frame_num in sorted(db['frames']):
-        frame = db['frames'][frame_num]
-        # Get handle to per frame render stats
-        if render_stats:
-            if frame_num in render_stats['frames']:
-                r_stat = render_stats['frames'][frame_num]
-        # Get handle to per ifd render stats:
-        if ifd_stats:
-            if frame_num in ifd_stats['frames']:
-                i_stat = ifd_stats['frames'][frame_num]
-
-        # Set color for problematic fields:
-        if not frame['exists']:
-            table += MISSING_FILE_TAG
-        elif not frame['integrity']:
-            table += BAD_FILE_TAG
-        elif frame['small_frame']:
-            table += SMALL_FILE_TAG
-        else:
-            table += NORMAL_FILE_TAG
-
-        # TODO: This is SGE specific.
-        # Convert details returend by qaact into seconds and then compute render time
-        # represented as pretty string.
-        start_time  = utils.convert_asctime_to_seconds(r_stat['start_time'])
-        end_time    = utils.convert_asctime_to_seconds(r_stat['end_time'])
-        render_time = utils.compute_time_lapse(start_time, end_time)
-        render_times += [start_time, end_time]
-
-        # Generate row:
-        table += ROW % (frame_num, 
-                       frame['exists'], 
-                       frame['integrity'], 
-                       frame['nans'], 
-                       frame['infs'], 
-                       str(bytes_to_megabytes(frame['size'])) + ' MB', 
-                       frame['small_frame'], 
-                       r_stat['hostname'], 
-                       render_time , 
-                       str(round(float(r_stat['mem']) / 1024, 2)) + " GB",
-                       str(bytes_to_megabytes(i_stat['ifd_size'], 5)) + ' MB')
-
-    # More info for an user:
-    render_times.sort()
-    info = ""
-    info += INFO_TABLE_HEADER
-    info += INFO_ROW % ('Job', db['job_name'])
-    info += INFO_ROW % ('User', r_stat['owner'])
-    info += INFO_ROW % ('Submitted', r_stat['qsub_time'])
-    info += INFO_ROW % ('Started', ctime(render_times[0]))
-    info += INFO_ROW % ('Ended: ', ctime(render_times[-1]))
-    info += INFO_ROW % ('Missing', ", ".join([str(f) for f in db['missing_frames']]))
-    info += INFO_ROW % ('Path', LINK_FILE % ('file://'+db['pattern'], db['pattern']))
-    html += info
-    # Finally add main table and return
-    html += table
-    html += FOOT
-    return html
-
-
-def send_debug(job_name, address, html, _from=None, server='ms1.human-ark.com'):
-    """Sends html report by email with provided smpt server. Address should be a list.
-    """
-    message = MIMEText(html, 'html')
-
-    message['Subject'] = 'Debug for %s' % job_name
-    message['From'] = address[0]
-    message['To']   = address[0]
-
-    smpt = smtplib.SMTP(server)
-    smpt.sendmail(address[0], address, message.as_string())
-    smpt.quit()
-
-    # An algorithm to compute PCA. Not as fast as the NumPy implementation
-
-def pca(data,nRedDim=0,normalise=1):
-    import numpy as np
-    
-    # Centre data
-    m = np.mean(data,axis=0)
-    data -= m
-
-    # Covariance matrix
-    C = np.cov(np.transpose(data))
-
-    # Compute eigenvalues and sort into descending order
-    evals,evecs = np.linalg.eig(C) 
-    indices = np.argsort(evals)
-    indices = indices[::-1]
-    evecs = evecs[:,indices]
-    evals = evals[indices]
-
-    if nRedDim>0:
-        evecs = evecs[:,:nRedDim]
-    
-    if normalise:
-        for i in range(np.shape(evecs)[1]):
-            evecs[:,i] / np.linalg.norm(evecs[:,i]) * np.sqrt(evals[i])
-
-    # Produce the new data matrix
-    x = np.dot(np.transpose(evecs),np.transpose(data))
-    # Compute the original data again
-    y=np.transpose(np.dot(evecs,x))+m
-    return x,y,evals,evecs
-
-def doubleMADsfromMedian(y,thresh=2.0):
-    '''http://stackoverflow.com/questions/22354094/\
-    pythonic-way-of-detecting-outliers-in-one-dimensional-observation-data'''
-    import numpy as np
-    m = np.median(y)
-    abs_dev = np.abs(y - m)
-    left_mad = np.median(abs_dev[y<=m])
-    right_mad = np.median(abs_dev[y>=m])
-    y_mad = np.zeros(len(y))
-    y_mad[y < m] = left_mad
-    y_mad[y > m] = right_mad
-    modified_z_score = 0.6745 * abs_dev / y_mad
-    modified_z_score[y == m] = 0
-    return modified_z_score > thresh
-
-def check_small_frames(db, threshold):
-    """Check for suspecious differences in frames size.
-       I currently look for outlies in siize derivatives.
-       Not very  usefull...
-    """
-    # Check if some files aren't too small:
-    sizes = db['file_sizes']
-    slope = []
-    db['small_frames'] = []
-    _max =  10000.0 #/ max(sizes) * 1000.0
-    for idx in range(len(sizes)):
-        current = sizes[idx] / _max
-        if idx == len(sizes) -1 :
-            next =  (current + (current - sizes[idx-1] / _max) ) 
-        else:
-            next    = sizes[idx+1] /  _max
-        slope.append(abs(next - current))
-
-    # TODO: We need curve fittign, but the only way I know to do that requries scipy > 0.9.
-    is_outlier = doubleMADsfromMedian(slope, threshold)
-    for v in range(len(is_outlier)):
-        if is_outlier[v]:
-            db['frames'][v+1]['small_frame'] = True
-            db['small_frames'] += [v]
-    #
-    return db
 
 def proceed_sequence(sequence, db, first_frame, last_frame):
     """Power horse of the script. Use iinfo and oiiotool to find details about
     images. Stores result in dictonary 'db'
     """
+    def isfloat(item):
+        try:
+            return float(item)
+        except: pass
+
     def iinfo_output(suspect):
         """$HFS/bin/iinfo loop."""
         integrity = False
@@ -325,6 +61,9 @@ def proceed_sequence(sequence, db, first_frame, last_frame):
         infs = 0
         integrity = True
         oiiotool_output = os.popen(const.OIIOTOOL + " --stats %s " % suspecet).readlines()
+        res = oiiotool_output[0].split(":")[1]
+        res = res.split()
+        res = [isfloat(x) for x in res if isfloat(x)]
         for line in oiiotool_output:
             if "NanCount:" in line:
                 line = line.strip()
@@ -340,9 +79,7 @@ def proceed_sequence(sequence, db, first_frame, last_frame):
                 _infs= sum([int(x) for x in _infs])
                 if _infs:
                     infs = _infs
-        return nans, infs
-
-
+        return nans, infs, res
 
     missing_frames = []
     file_sizes = []
@@ -350,6 +87,7 @@ def proceed_sequence(sequence, db, first_frame, last_frame):
     # Main loop:
     for frame in range(first_frame, last_frame+1):
         # This file should exist:
+        # FXIME: paddign() has _frame=40 for this.
         suspecet = sequence[0] + str(frame).zfill(sequence[2]) + sequence[3]
         exists   = os.path.isfile(suspecet)
 
@@ -361,7 +99,7 @@ def proceed_sequence(sequence, db, first_frame, last_frame):
             # iinfo run:
             integrity = iinfo_output(suspecet)
             # oiiotool run:
-            nans, infs = oiiotool_output(suspecet)
+            nans, infs, res = oiiotool_output(suspecet)
             
             # Get size in kbytes:
             size = os.path.getsize(suspecet)
@@ -370,8 +108,10 @@ def proceed_sequence(sequence, db, first_frame, last_frame):
         # Collect data:
         db['frames'][frame] = {'exists': exists,
                      'integrity': integrity,
+                     'file': suspecet,
                      'nans': nans,
                      'infs': infs,
+                     'resolution': res,
                      'size': size,
                      'small_frame': False}
 
@@ -381,46 +121,6 @@ def proceed_sequence(sequence, db, first_frame, last_frame):
 
     return db
 
-def merge_reports(db, reports):
-    """ Instead of images to analize, use previously generated data in *.json format,
-        and merge them to produce single report.
-    """
-    # TODO Partial report should have freedom to keep single or group of frames...
-    # Whole report database should be little more generic, not hard coded.
-    first = 1
-    last  = 1
-    keys = []
-    # We want to retrieve data from segments:
-    if not 'file_sizes' in db.keys():
-        db['file_sizes'] = []
-    if not 'missing_frames' in db.keys():
-        db['missing_frames'] = []
-
-    for frame in range(len(reports)):
-        file = open(reports[frame])
-        data = json.load(file)
-        for key in data['frames']:
-            db['frames'][int(key)] = data['frames'][key] # Json turns any key into string.
-            db['file_sizes'] += data['file_sizes']
-            db['missing_frames'] += data['missing_frames']
-            keys.append(int(key))
-
-    keys.sort()
-    db['first_frame'] = keys[0]
-    db['last_frame']  = keys[-1]
-    db['pattern']     = utils.padding(data['pattern'], 'shell')[0]
-    db['job_name']    = data['job_name']
-
-    return db
-
-
-def get_render_stats(job_name):
-    """
-    Retrives render statistics from render manager.
-    """
-    import hafarm
-    farm = hafarm.HaFarm()
-    return farm.get_job_stats(job_name)
 
 def get_ifd_stats(job_name, ifd_path):
     stats={}
@@ -459,6 +159,7 @@ def main():
     # Find images matching pattern, 
     # the real sequence on disk:
     pattern       = os.path.abspath(options.image_pattern)
+    pattern       = os.path.expandvars(pattern)
     images        = glob.glob(pattern)
     images.sort()
 
@@ -486,61 +187,26 @@ def main():
           'job_name'   : options.job_name,
           'frames'     : {} }
 
-
-    if options.merge_reports:
-        # Merge json files previsouly generated:
-        db = merge_reports(db, images)
-        # Get render statistics:
-        render_stats = get_render_stats(db['job_name'])
-        # Find suspicion small files:
-        db = check_small_frames(db, options.mad_threshold)
-        #print render_stats
-        # Get IFD (Mantra specific) statistics:
-        if options.ifd_path:
-            ifd_stats = get_ifd_stats(db['job_name'], options.ifd_path)
-
-        # Get rid of .json at the end
-        sequence = utils.padding(os.path.splitext(images[-1])[0])
-    else:
-        # First run over all frames to gather per-frame information:
-        db = proceed_sequence(sequence, db, first_frame, last_frame)
-
+    
+    # Run over all frames to gather per-frame information:
+    db = proceed_sequence(sequence, db, first_frame, last_frame)
 
 
     # Present report:
-    if options.save_html or options.send_email \
-    or options.display_report or options.save_json:
-        html = generate_html(db, render_stats, ifd_stats)
+    if options.save_json:
+        path = const.hafarm_defaults['log_path']
+        path = os.path.expandvars(path)
 
-        # Send report by email:
-        if options.send_email:
-            send_debug(options.job_name, [utils.get_email_address()], html)
-
-        # Saving on disk:
-        if options.save_html or options.save_json:
-            path = const.hafarm_defaults['log_path']
-            path = os.path.expandvars(path)
-
-            # FIXME: This is little messy...
-            tmp, report = os.path.split(sequence[0])
-            # Single frame mode shouldn't strip off padding, like does version above:
-            if single_frame: report  = os.path.split(images[0] + ".")[1]
-            # Add log path, frame and the extension acording to requested save format:
-            report = os.path.join(path, report + "%s")
-          
-
-            # Write it down:
-            if options.save_html: 
-                with open(report % 'html', 'w') as file:
-                    file.write(html)
-
-            if options.save_json:
-                with open(report % 'json', 'w') as file:
-                    json.dump(db, file, indent=2)
-
-            # if options.save_html and options.display_report: 
-            #     os.popen("gnome-open %s " % report)
-
+        # FIXME: This is little messy...
+        tmp, report = os.path.split(sequence[0])
+        # Single frame mode shouldn't strip off padding, like does version above:
+        if single_frame: report  = os.path.split(images[0] + ".")[1]
+        # Add log path, frame and the extension acording to requested save format:
+        report = os.path.join(path, report + "%s")
+        with open(report % 'json', 'w') as file:
+            json.dump(db, file, indent=2)
+    else:
+        print db
 
 
 if __name__ == "__main__": main()

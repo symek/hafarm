@@ -101,15 +101,14 @@ class BatchFarm(hafarm.HaFarm):
             with that, send_emials, save on dist as json/html etc.
         '''
         # 
-        send_email = '--send_email' if send_email else ""
+        send_email = '--send_email' # ON BY DEFAULT if send_email else ""
         ifd_path   = '--ifd_path %s' % ifd_path if ifd_path else ""
         # 
         path, filename = os.path.split(filename)
         details = utils.padding(filename, 'shell')
         log_path = os.path.expandvars(self.parms['log_path'])
-
-        self.parms['scene_file'] =  '"' + os.path.join(log_path, details[0]) + '.json"' 
-        self.parms['command']    = '$HAFARM_HOME/scripts/debug_images.py %s %s --merge_reports --mad_threshold %s --save_html -i ' % (send_email, ifd_path, mad_threshold)
+        self.parms['scene_file'] =  os.path.join(log_path, details[0]) + '.json'
+        self.parms['command']    = '$HAFARM_HOME/scripts/generate_render_reports.py %s %s --merge_reports --mad_threshold %s --save_html -i ' % (send_email, ifd_path, mad_threshold)
         self.parms['start_frame'] = 1
         self.parms['end_frame']   = 1
 
