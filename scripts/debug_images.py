@@ -198,7 +198,7 @@ def main():
         path = os.path.expandvars(path)
 
         # FIXME: This is little messy...
-        tmp, report = os.path.split(sequence[0])
+        tmp, report = os.path.split(options.image_pattern)
         # Single frame mode shouldn't strip off padding, like does version above:
         if single_frame: report  = os.path.split(images[0] + ".")[1]
         # Add log path, frame and the extension acording to requested save format:

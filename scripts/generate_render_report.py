@@ -237,10 +237,10 @@ def generate_html(db, render_stats=None, ifd_stats=None, errors_only=False):
     nthumbs = max(len(proxies) / 10, 1)
     for thumb in proxies[::nthumbs]:
         if os.path.isfile(thumb):
-            thumbs +=   LINK_IMAGE % ('file://' + thumb, 'file://'+ thumb, thumb, 17*3, 10*3)
+            thumbs +=   LINK_IMAGE % ('file://' + thumb, 'file://'+ thumb, 17*3, 10*3, thumb)
     info += INFO_ROW % ('PROXY', thumbs)
     if os.path.isfile(mp4):
-        info += INFO_ROW % ('MP4',  LINK_IMAGE % ('file://' + mp4, 'file://'+ thumb, mp4, 17*3, 10*3))
+        info += INFO_ROW % ('MP4',  LINK_IMAGE % ('file://' + mp4, 'file://'+ thumb, 17*3, 10*3, mp4))
 
     # Finally add main table and return
     html += info
