@@ -434,7 +434,7 @@ def main():
 
     # Send report by email:
     if options.send_email:
-        send_debug(db['job_name'], [utils.get_email_address()], html)
+        send_debug(db['job_name'], [utils.get_email_address()] + const.RENDER_WRANGERS, html)
         
     # Saving to files:
     if options.save_html or options.save_json:
