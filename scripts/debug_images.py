@@ -167,10 +167,12 @@ def main():
     # wants to examine single file from a siquence. 
     if len(images) == 1:
         single_frame = True
-        print "Single frame found."
     if len(images) == 0:
         print "No images found: %s" % options.image_pattern
         sys.exit()
+
+    # Some feedback to user. 
+    print sys.argv[0] + " proceeds %s files: %s" % (len(images), images[0])
 
     # Get first and last frame on disk
     # TODO Add argument to overwrite framge range on disk.
