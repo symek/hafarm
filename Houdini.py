@@ -436,7 +436,7 @@ def render_pressed(node):
         # Merge reports:
         merger   = Batch.BatchFarm(job_name = job_name + "_mergeReports", queue = queue, parent_job_name = [debug_render.parms['job_name']])
         ifd_path = os.path.join(os.getenv("JOB"), 'render/sungrid/ifd')
-        merger.merge_reports(output_picture, ifd_path=ifd_path)
+        merger.merge_reports(output_picture, ifd_path=ifd_path, resend_frames=node.parm('rerun_bad_frames').eval())
         merger.render()
 
     # Make a movie from proxy frames:
