@@ -67,7 +67,11 @@ def convert_asctime_to_seconds(time_string):
     '''Converts time in asc format to seconds'''
     from time import strptime, mktime
     format = '%a %b %d %H:%M:%S %Y'
-    return mktime(strptime(time_string, format))
+    try: 
+        time_struct = strptime(time_string, format)
+    except: 
+        return
+    return mktime(time_struct)
 
 def compute_time_lapse(start, end=None):
     """Taking two inputs in seconds, compute a difference
