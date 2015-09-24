@@ -1,4 +1,4 @@
-import os, sys
+import os, sys, json
 
 # TODO: We either do proper Python's  eggs (see: http://docs.pylonsproject.org/projects/pylons-webframework/\
 # en/latest/advanced_pylons/entry_points_and_plugins.html) or make something like: managers/__init__.py 
@@ -59,7 +59,7 @@ class HaFarm(object):
                 self.manager = self.render_backends[backend]()
         return True
 
-    def generate_unique_job_name(self, name):
+    def generate_unique_job_name(self, name='no_name_job'):
         """Returns unique name for a job. 'Name' is usually a scene file. 
         """
         from base64 import urlsafe_b64encode
@@ -107,6 +107,11 @@ class HaFarm(object):
 
 
         # This should stay renderfarm agnostic call.
+
+        # Save current state into file/db:
+        save_result= self.save_parms()
+        self.logger.info(save_result[1])
+        # Render:
         pre_result = self.pre_schedule()
         result     = self.manager.render()
         post_result= self.post_schedule()
@@ -132,6 +137,34 @@ class HaFarm(object):
                 self.logger.debug("No HAFARM_DEBUG env. var.: %s (should be an integer)" % os.getenv("HAFARM_DEBUG"))
 
         return result
+
+
+    def save_parms(self, save_to_db=False, parms_file=None):
+        """ Save current state of a job into a file and/or database (TO BE DONE).
+            This should be enough information to reacreate a job on farm with old 
+            or any other backend.
+        """
+        _db = {}
+        _db['class_name']   = self.__class__.__name__
+        _db['backend_name'] = self.manager.__class__.__name__
+        _db['parms']        = self.parms
+
+        if not parms_file:
+            parms_file = os.path.expandvars(self.parms['script_path'])
+            parms_file = os.path.join(parms_file, self.parms['job_name']) + ".json"
+
+        with open(parms_file, 'w') as file:
+            result = json.dump(_db, file, indent=2)
+        return result, parms_file
+
+    def load_parms_from_file(self, parms_file):
+        """
+        """
+        with open(parms_file) as file:
+            result = json.load(file)
+            self.parms.merge_parms(result['parms'])
+            self.parms['job_name'] = self.generate_unique_job_name(self.parms['job_name'])
+
 
     def get_queue_list(self):
         """Returns queue list as provided by render manager.
