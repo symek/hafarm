@@ -36,7 +36,9 @@ class HaFarmParms(dict):
         """Copies a content of parms_dict into self.
         """
         for key, value in parms_dict.iteritems():
-            self[key] = value
+            if isinstance(value, type(u'')):
+                value = str(value)
+            self[str(key)] = value
 
     def has_entry(self, entry):
         if entry in self.keys():
