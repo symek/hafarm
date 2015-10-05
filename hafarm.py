@@ -16,8 +16,36 @@ from parms import HaFarmParms
 import const
 import utils
 
+class Action(object):
+    actions = []
+    def __init__(self):
+        '''Initialize  a list of direct input actions reference by its unique names.
+        '''
+        pass
 
-class HaFarm(object):
+    def get_all_actions(self):
+        '''Returns a list of all input actions (including indirect inputs).
+        '''
+        pass
+
+    def is_related(self, action):
+        '''Finds if provided action relates on current action.
+        '''
+        pass
+
+    def get_my_recipe(self, action):
+        '''Returns a list of nececery steps to fulfill current action requirements.
+        '''
+        pass
+
+    def get_direct_inputs(self):
+        '''Returns a list of direct inputs to current action.
+        '''
+        return self.actions
+
+
+
+class HaFarm(Action):
     """Parent class to be inherited by host specific classes (Houdini, Maya, Nuke etc).
     It's a child of renderfarm manager class (currently SGE, but maybe any thing else in
     a future: OpenLava/whatever. Neither this class nor its children should notice if
@@ -145,6 +173,7 @@ class HaFarm(object):
             or any other backend.
         """
         _db = {}
+        _db['actions']      = self.get_direct_inputs()
         _db['class_name']   = self.__class__.__name__
         _db['backend_name'] = self.manager.__class__.__name__
         _db['parms']        = self.parms
