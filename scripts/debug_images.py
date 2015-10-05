@@ -3,6 +3,7 @@
 import os
 import sys
 import glob
+import subprocess
 from optparse import OptionParser
 import json
 
@@ -39,32 +40,50 @@ def proceed_sequence(sequence, db, first_frame, last_frame):
     """Power horse of the script. Use iinfo and oiiotool to find details about
     images. Stores result in dictonary 'db'
     """
+    nans = 0
+    infs = 0
+    res  = (0,0)
+    missing_frames = []
+    file_sizes = []
+
     def isfloat(item):
         try:
             return float(item)
         except: pass
 
-    def iinfo_output(suspect):
+    def iinfo_output(image):
         """$HFS/bin/iinfo loop."""
-        integrity = False
-        iinfo_output = os.popen(const.IINFO + " %s" % suspecet).readlines()
-        for line in iinfo_output:
+        integrity = True
+        iinfo_bin = os.path.expandvars(const.IINFO)
+        sp        = subprocess.Popen([iinfo_bin, '-b', '-i' , image], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        output, error = sp.communicate()
+
+        if not output or error:
+            print error
+            return integrity
+
+        for line in output:
             if line.startswith("Integrity"):
-                if "File OK" in line:
-                    integrity = True
+                if not "File OK" in line:
+                    integrity = False
                 break
         return integrity
 
-    def oiiotool_output(suspecet):
+    def oiiotool_output(image):
         """oiiotool loop."""
         nans = 0
         infs = 0
         integrity = True
-        oiiotool_output = os.popen(const.OIIOTOOL + " --stats %s " % suspecet).readlines()
-        res = oiiotool_output[0].split(":")[1]
-        res = res.split()
-        res = [isfloat(x) for x in res if isfloat(x)]
-        for line in oiiotool_output:
+        res  = (0,0)
+        oiiotool_bin = os.path.expandvars(const.OIIOTOOL)
+        sp = subprocess.Popen([oiiotool_bin, '--stats', image], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        output, error = sp.communicate()
+        
+        if error or not output:
+            print error
+            return nans, infs, res
+
+        for line in output:
             if "NanCount:" in line:
                 line = line.strip()
                 line = line.split(":")[1]
@@ -81,15 +100,14 @@ def proceed_sequence(sequence, db, first_frame, last_frame):
                     infs = _infs
         return nans, infs, res
 
-    missing_frames = []
-    file_sizes = []
+
 
     # Main loop:
     for frame in range(first_frame, last_frame+1):
         # This file should exist:
         # FXIME: paddign() has _frame=40 for this.
-        suspecet = sequence[0] + str(frame).zfill(sequence[2]) + sequence[3]
-        exists   = os.path.isfile(suspecet)
+        image = sequence[0] + str(frame).zfill(sequence[2]) + sequence[3]
+        exists   = os.path.isfile(image)
 
         # Frame is missing:
         if not exists:
@@ -97,18 +115,18 @@ def proceed_sequence(sequence, db, first_frame, last_frame):
             missing_frames.append(frame)
         else:
             # iinfo run:
-            integrity = iinfo_output(suspecet)
+            integrity = iinfo_output(image)
             # oiiotool run:
-            nans, infs, res = oiiotool_output(suspecet)
+            nans, infs, res = oiiotool_output(image)
             
             # Get size in kbytes:
-            size = os.path.getsize(suspecet)
+            size = os.path.getsize(image)
             file_sizes.append(size)
 
         # Collect data:
         db['frames'][frame] = {'exists': exists,
                      'integrity': integrity,
-                     'file': suspecet,
+                     'file': image,
                      'nans': nans,
                      'infs': infs,
                      'resolution': res,
