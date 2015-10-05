@@ -6,12 +6,12 @@
 TASK_ID = '@TASK_ID/>'
 RAND_LEN = 6
 TILE_ID  = '__TILE__'
-OIIOTOOL = 'LD_PRELOAD=/opt/packages/oiio-1.4.15/lib/libOpenImageIO.so.1.4 /opt/packages/oiio-1.4.15/bin/oiiotool '
+OIIOTOOL = '/opt/packages/oiio-1.4.15/bin/oiiotool.sh'
 MANTRA_FILTER = '/STUDIO/houdini/houdini13.0/scripts/python/HaFilterIFD_v01.py'
 PROXY_POSTFIX = "proxy"
 TILES_POSTFIX = 'tiles'
 MAX_CORES      = '@MAX_CORES/>'
-IINFO          = '$HFS/bin/iinfo -b -i '
+IINFO          = '$HFS/bin/iinfo'
 DEBUG          = 1
 TASK_ID_PADDED = '@TASK_ID_PADDED/>'
 RENDER_WRANGERS= ['renderfarm@human-ark.com']
