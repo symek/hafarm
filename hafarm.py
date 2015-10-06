@@ -21,7 +21,7 @@ class Graph(dict):
 
 class HaResource(object):
     pass
-    
+
 class HaAction(object):
     inputs     = []
     array_interdependencies  = False
@@ -149,8 +149,11 @@ class HaFarm(HaAction):
         from time import time
         self.parms['submission_time'] = time()
 
-        # This should stay renderfarm agnostic call.
+        # FIXME...
+        if self.parms['start_frame'] != self.parms['end_frame']:
+            self.array_interdependencies = True
 
+        # This should stay renderfarm agnostic call.
         # Save current state into file/db:
         save_result= self.save_parms()
         self.logger.info(save_result[1])
@@ -158,8 +161,9 @@ class HaFarm(HaAction):
         # Dependeces:
         if self.resolve_dependencies:
             for action in self.get_direct_inputs():
-                if action.array_interdependencies:
-                    self.parms['hold_jid_add'].append(action.parms['job_name'])
+                # Both needs to be true...
+                if action.array_interdependencies and self.array_interdependencies:
+                    self.parms['hold_jid_ad'].append(action.parms['job_name'])
                 else:
                     self.parms['hold_jid'].append(action.parms['job_name'])
 
