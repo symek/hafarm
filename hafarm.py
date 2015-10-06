@@ -23,12 +23,9 @@ class HaResource(object):
     pass
 
 class HaAction(object):
-    inputs     = []
-    array_interdependencies  = False
     def __init__(self, graph=None):
         '''Initialize  a list of direct input actions reference by its unique names.
         '''
-        self.graph = graph
 
     def get_all_actions(self, graph):
         '''Returns a list of all input actions (including indirect inputs).
@@ -56,7 +53,9 @@ class HaAction(object):
         if issubclass(action.__class__, HaFarm):
             if action.parms['start_frame'] != action.parms['end_frame']:
                 action.array_interdependencies = True
-            self.inputs.append(action)
+
+            if action not in self.inputs:
+                self.inputs.append(action)
 
 
 
@@ -67,8 +66,13 @@ class HaFarm(HaAction):
     underlying manager will change.
     """
     def __init__(self, job_name='', parent_job_name=[], queue='', backend = 'Sungrid', backend_version = None):
-        super(HaFarm, self).__init__()
+        #super(HaFarm, self).__init__()
+        # Graph engine:
+        self.inputs = []
+        self.graph = None
+        self.array_interdependencies  = False
         self.resolve_dependencies = True
+        # Render backends:
         self.render_backends = {}
         self.parms   = HaFarmParms(initilize=True)
         self.logger  = Logger(self.__class__.__name__)  
@@ -153,12 +157,7 @@ class HaFarm(HaAction):
         if self.parms['start_frame'] != self.parms['end_frame']:
             self.array_interdependencies = True
 
-        # This should stay renderfarm agnostic call.
-        # Save current state into file/db:
-        save_result= self.save_parms()
-        self.logger.info(save_result[1])
-
-        # Dependeces:
+        # Dependences:
         if self.resolve_dependencies:
             for action in self.get_direct_inputs():
                 # Both needs to be true...
@@ -167,6 +166,10 @@ class HaFarm(HaAction):
                 else:
                     self.parms['hold_jid'].append(action.parms['job_name'])
 
+        # This should stay renderfarm agnostic call.
+        # Save current state into file/db:
+        save_result= self.save_parms()
+        self.logger.info(save_result[1])
         # Render:
         pre_result = self.pre_schedule()
         result     = self.manager.render()
