@@ -169,10 +169,10 @@ class TestBatchFarm(unittest.TestCase):
         self.assertEqual(batch_farm.parms['hold_jid'], [])
         self.assertEqual(batch_farm.parms['queue'], "3d")
 
-    def test_debug_images(self):
-        batch_farm = BatchFarm("Test", [], '3d')
-        batch_farm.debug_images('/tmp/test.0001.exr')
-        self.assertEqual(batch_farm.parms['command_arg'], [debug_images_output])
+    # def test_debug_images(self):
+    #     batch_farm = BatchFarm("Test", [], [], '3d')
+    #     batch_farm.debug_image('/tmp/test.0001.exr')
+    #     self.assertEqual(batch_farm.parms['command_arg'], [debug_images_output])
 
     def test_join_tiles(self):
         batch_farm = BatchFarm("Test", parent_job_name=[], queue='3d')
