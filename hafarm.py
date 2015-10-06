@@ -16,24 +16,31 @@ from parms import HaFarmParms
 import const
 import utils
 
-class Action(object):
-    actions = []
-    def __init__(self):
+class Graph(dict):
+    pass
+
+class HaResource(object):
+    pass
+    
+class HaAction(object):
+    inputs     = []
+    array_interdependencies  = False
+    def __init__(self, graph=None):
         '''Initialize  a list of direct input actions reference by its unique names.
         '''
-        pass
+        self.graph = graph
 
-    def get_all_actions(self):
+    def get_all_actions(self, graph):
         '''Returns a list of all input actions (including indirect inputs).
         '''
         pass
 
-    def is_related(self, action):
+    def is_related(self, action, graph):
         '''Finds if provided action relates on current action.
         '''
         pass
 
-    def get_my_recipe(self, action):
+    def get_my_recipe(self, graph):
         '''Returns a list of nececery steps to fulfill current action requirements.
         '''
         pass
@@ -41,18 +48,27 @@ class Action(object):
     def get_direct_inputs(self):
         '''Returns a list of direct inputs to current action.
         '''
-        return self.actions
+        return self.inputs
+
+    def add_input(self, action): 
+        '''Adds input to a node checking if its a array job.
+        '''
+        if issubclass(action.__class__, HaFarm):
+            if action.parms['start_frame'] != action.parms['end_frame']:
+                action.array_interdependencies = True
+            self.inputs.append(action)
 
 
 
-class HaFarm(Action):
+class HaFarm(HaAction):
     """Parent class to be inherited by host specific classes (Houdini, Maya, Nuke etc).
     It's a child of renderfarm manager class (currently SGE, but maybe any thing else in
     a future: OpenLava/whatever. Neither this class nor its children should notice if
     underlying manager will change.
     """
     def __init__(self, job_name='', parent_job_name=[], queue='', backend = 'Sungrid', backend_version = None):
-        # super(HaFarm, self).__init__()
+        super(HaFarm, self).__init__()
+        self.resolve_dependencies = True
         self.render_backends = {}
         self.parms   = HaFarmParms(initilize=True)
         self.logger  = Logger(self.__class__.__name__)  
@@ -133,12 +149,20 @@ class HaFarm(Action):
         from time import time
         self.parms['submission_time'] = time()
 
-
         # This should stay renderfarm agnostic call.
 
         # Save current state into file/db:
         save_result= self.save_parms()
         self.logger.info(save_result[1])
+
+        # Dependeces:
+        if self.resolve_dependencies:
+            for action in self.get_direct_inputs():
+                if action.array_interdependencies:
+                    self.parms['hold_jid_add'].append(action.parms['job_name'])
+                else:
+                    self.parms['hold_jid'].append(action.parms['job_name'])
+
         # Render:
         pre_result = self.pre_schedule()
         result     = self.manager.render()
@@ -173,7 +197,7 @@ class HaFarm(Action):
             or any other backend.
         """
         _db = {}
-        _db['actions']      = self.get_direct_inputs()
+        _db['inputs']      = [item.parms['job_name'] for item in self.get_direct_inputs()]
         _db['class_name']   = self.__class__.__name__
         _db['backend_name'] = self.manager.__class__.__name__
         _db['parms']        = self.parms
