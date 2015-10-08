@@ -70,7 +70,7 @@ class HaFarm(HaAction):
         super(HaFarm, self).__init__()
         # Possibly useless, good for debuging:
         from uuid import uuid4
-        self.id = uuid.uuid4()
+        self.id = uuid4()
         # Can we interlease per task with dependant job?:
         self.array_interdependencies  = False
         # Resolve dependecies based on provided graph or direct inputs before

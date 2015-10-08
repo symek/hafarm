@@ -7,8 +7,8 @@ class HaFarmParms(dict):
     """
     def __init__(self, initilize=False, defaults=hafarm_defaults):
         super(HaFarmParms, self).__init__()
-        import uuid
-        self.id = uuid.uuid4()
+        from uuid import uuid4
+        self.id = uuid4()
 
         # Init with defaults:
         self.merge_parms(defaults)
