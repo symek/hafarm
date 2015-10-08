@@ -7,6 +7,8 @@ class HaFarmParms(dict):
     """
     def __init__(self, initilize=False, defaults=hafarm_defaults):
         super(HaFarmParms, self).__init__()
+        import uuid
+        self.id = uuid.uuid4()
 
         # Init with defaults:
         self.merge_parms(defaults)
@@ -35,10 +37,17 @@ class HaFarmParms(dict):
     def merge_parms(self, parms_dict):
         """Copies a content of parms_dict into self.
         """
+        import copy
         for key, value in parms_dict.iteritems():
             if isinstance(value, type(u'')):
-                value = str(value)
-            self[str(key)] = value
+                self[str(key)] = str(value)
+            if isinstance(value, type([])):
+                self[str(key)] = list(value)
+            if isinstance(value, type(())):
+                self[str(key)] = tuple(value)
+            else:
+                self[str(key)] = copy.deepcopy(value)
+
 
     def has_entry(self, entry):
         if entry in self.keys():
