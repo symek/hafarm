@@ -13,13 +13,11 @@ from hafarm import const
 class BatchFarm(hafarm.HaFarm):
     '''Performs arbitrary script on farm. Also encapsulates utility functions for handling usual tasks.
     like tile merging, dubuging renders etc.'''
-    def __init__(self, job_name='', parent_job_name=[], parent_array_name=[], queue='', command='', command_arg=''):
+    def __init__(self, job_name='', queue='', command='', command_arg=''):
         super(BatchFarm, self).__init__()
         self.parms['queue']          = queue
         self.parms['command']        = command
         self.parms['command_arg']    = [command_arg]
-        self.parms['hold_jid']       = parent_job_name
-        self.parms['hold_jid_ad']    = parent_array_name
         self.parms['ignore_check']   = True
         self.parms['slots']          = 1
         self.parms['req_resources'] = ''
