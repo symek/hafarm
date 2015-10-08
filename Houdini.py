@@ -144,7 +144,7 @@ class HbatchFarm(hafarm.HaFarm):
 
 
 class MantraFarm(hafarm.HaFarm):
-    def __init__(self, node, rop=None, job_name='', parent_job_name=[],  parent_array_name=[], crop_parms=(1,1,0)):
+    def __init__(self, node, rop=None, job_name='', crop_parms=(1,1,0)):
         super(MantraFarm, self).__init__()
 
         # Keep reference to assigned rop
@@ -200,12 +200,6 @@ class MantraFarm(hafarm.HaFarm):
         self.parms['frame_range_arg'] = ["%s%s%s", '', '', ''] 
         self.parms['req_resources']   = 'procslots=%s' % int(self.node.parm('slots').eval())
         self.parms['make_proxy']      = bool(self.node.parm("make_proxy").eval())
-
-        # Hold until parent job isn't completed
-        if parent_job_name:
-            self.parms['hold_jid'] = parent_job_name
-        if parent_array_name:
-            self.parms['hold_jid_ad'] = parent_array_name
 
         
         # Bellow needs any node to be connected, which isn't nececery for rendering directly
@@ -502,7 +496,6 @@ def render_pressed(node):
     # End of story again:
     actions = hscripts + mantras + posts
     [action.render() for action in actions]
-    print actions
                
 
 
