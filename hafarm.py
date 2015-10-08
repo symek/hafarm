@@ -1,4 +1,4 @@
-import os, sys, json
+import os, sys, json, abc
 
 # TODO: We either do proper Python's  eggs (see: http://docs.pylonsproject.org/projects/pylons-webframework/\
 # en/latest/advanced_pylons/entry_points_and_plugins.html) or make something like: managers/__init__.py 
@@ -23,9 +23,11 @@ class HaResource(object):
     pass
 
 class HaAction(object):
+    __metaclass__ = abc.ABCMeta
     def __init__(self, graph=None):
         '''Initialize  a list of direct input actions reference by its unique names.
         '''
+        self.inputs = []
 
     def get_all_actions(self, graph):
         '''Returns a list of all input actions (including indirect inputs).
@@ -58,7 +60,6 @@ class HaAction(object):
                 self.inputs.append(action)
 
 
-
 class HaFarm(HaAction):
     """Parent class to be inherited by host specific classes (Houdini, Maya, Nuke etc).
     It's a child of renderfarm manager class (currently SGE, but maybe any thing else in
@@ -66,29 +67,28 @@ class HaFarm(HaAction):
     underlying manager will change.
     """
     def __init__(self, job_name='', parent_job_name=[], queue='', backend = 'Sungrid', backend_version = None):
-        #super(HaFarm, self).__init__()
-        # Graph engine:
-        self.inputs = []
-        self.graph = None
+        super(HaFarm, self).__init__()
+        # Possibly useless, good for debuging:
+        from uuid import uuid4
+        self.id = uuid.uuid4()
+        # Can we interlease per task with dependant job?:
         self.array_interdependencies  = False
+        # Resolve dependecies based on provided graph or direct inputs before
+        # sending to manager.
         self.resolve_dependencies = True
         # Render backends:
         self.render_backends = {}
         self.parms   = HaFarmParms(initilize=True)
         self.logger  = Logger(self.__class__.__name__)  
         self.manager = DummyManager() # This is dummy object usefil for debugging.
-
         # Find some less dummy render manager:
         if not self.install_render_backend(backend, backend_version):
             self.logger.info("Can't find any backend. Using Dummy()")
 
-        # Attach parms right to manger
-        # TODO: Should be change this behavior? 
-        self.manager.parms = self.parms
-
     def install_render_backend(self, backend, version):
         """Find RenderManager subclasses and attach it to self.manager as a rendering backend.
         """
+        # FIXME That not only doesn't work well, it doesn't work at all!
         for plugin in RenderManager.__subclasses__(): 
             self.render_backends[plugin.__name__] = plugin
         self.logger.debug('Registered backends: %s ' % self.render_backends)
@@ -110,6 +110,7 @@ class HaFarm(HaAction):
     def generate_unique_job_name(self, name='no_name_job'):
         """Returns unique name for a job. 'Name' is usually a scene file. 
         """
+        # TODO: Make it more suitable for disk paths. (no *, -)
         from base64 import urlsafe_b64encode
         name = os.path.basename(name)
         return "_".join([os.path.split(name)[1], urlsafe_b64encode(os.urandom(3))])
@@ -153,26 +154,29 @@ class HaFarm(HaAction):
         from time import time
         self.parms['submission_time'] = time()
 
-        # FIXME...
-        if self.parms['start_frame'] != self.parms['end_frame']:
-            self.array_interdependencies = True
-
         # Dependences:
+        # FIXME: This shouldn't be here I suppose... 
         if self.resolve_dependencies:
+            if self.parms['start_frame'] != self.parms['end_frame'] \
+            and self.parms['end_frame']  != self.parms['step_frame']:
+                self.array_interdependencies = True
+
             for action in self.get_direct_inputs():
                 # Both needs to be true...
                 if action.array_interdependencies and self.array_interdependencies:
-                    self.parms['hold_jid_ad'].append(action.parms['job_name'])
+                    self.parms['hold_jid_ad'] += [action.parms['job_name']]
                 else:
-                    self.parms['hold_jid'].append(action.parms['job_name'])
+                    self.parms['hold_jid'] += [action.parms['job_name']]
 
-        # This should stay renderfarm agnostic call.
         # Save current state into file/db:
         save_result= self.save_parms()
         self.logger.info(save_result[1])
+
         # Render:
         pre_result = self.pre_schedule()
-        result     = self.manager.render()
+
+        # Send our parms to scheduler...
+        result     = self.manager.render(self.parms)
         post_result= self.post_schedule()
 
         # Info logger call:
@@ -204,7 +208,7 @@ class HaFarm(HaAction):
             or any other backend.
         """
         _db = {}
-        _db['inputs']      = [item.parms['job_name'] for item in self.get_direct_inputs()]
+        _db['inputs']       = [item.parms['job_name'] for item in self.get_direct_inputs()]
         _db['class_name']   = self.__class__.__name__
         _db['backend_name'] = self.manager.__class__.__name__
         _db['parms']        = self.parms
