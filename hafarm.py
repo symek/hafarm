@@ -22,10 +22,11 @@ class Graph(dict):
 class HaResource(object):
     pass
 
+#TODO: This isn't still  correct...
 class HaAction(object):
-    __metaclass__ = abc.ABCMeta
+    #__metaclass__ = abc.ABCMeta
     def __init__(self, graph=None):
-        '''Initialize  a list of direct input actions reference by its unique names.
+        '''Initialize  a list of direct input actions referenced by its unique names.
         '''
         self.inputs = []
 
@@ -66,7 +67,7 @@ class HaFarm(HaAction):
     a future: OpenLava/whatever. Neither this class nor its children should notice if
     underlying manager will change.
     """
-    def __init__(self, job_name='', parent_job_name=[], queue='', backend = 'Sungrid', backend_version = None):
+    def __init__(self, job_name='', queue='', backend = 'Sungrid', backend_version = None):
         super(HaFarm, self).__init__()
         # Possibly useless, good for debuging:
         from uuid import uuid4
@@ -170,7 +171,7 @@ class HaFarm(HaAction):
 
         # Save current state into file/db:
         save_result= self.save_parms()
-        self.logger.info(save_result[1])
+        # self.logger.info(save_result[1])
 
         # Render:
         pre_result = self.pre_schedule()
@@ -180,15 +181,16 @@ class HaFarm(HaAction):
         post_result= self.post_schedule()
 
         # Info logger call:
-        for item in result:
-            if isinstance(result[item], type([])):
-                output = " ".join(result[item])
-            elif isinstance(result[item], type("")):
-                output = result[item]
-            else:
-                output = result[item]
+        #FIXME THIS IS SO BAD
+        # for item in result:
+        #     if isinstance(result[item], type([])):
+        #         output = " ".join(result[item])
+        #     elif isinstance(result[item], type("")):
+        #         output = result[item]
+        #     else:
+        #         output = result[item]
 
-            self.logger.info("%s: %s" % (item, output))
+        #     self.logger.info("%s: %s" % (item, output))
         
         # Debugging. Should const.DEBUG overwrite HAFARM_DEBUG?
         # Should we select levels? 

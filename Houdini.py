@@ -8,10 +8,13 @@ import hou
 
 # Custom: 
 import hafarm
+reload(hafarm)
 from hafarm import utils
 from hafarm import const
-import Batch
+from hafarm import BatchFarm
 
+# Jobs multi-tasking are always diabled for these nodes:
+SINGLE_TASK_NODES = ('alembic', 'mdd', 'channel', 'dop', 'filmboxfbx')
 
 class HbatchFarm(hafarm.HaFarm):
     def __init__(self, node, rop):
@@ -19,7 +22,6 @@ class HbatchFarm(hafarm.HaFarm):
         # Keep reference to assigned rop
         self.rop = rop
         self.node = node
-
         # command will be either hscript csh script shipped with Houdini 
         # or any custom render script (harender atm.)
         self.parms['command']     = str(self.node.parm("command").eval())
@@ -43,20 +45,21 @@ class HbatchFarm(hafarm.HaFarm):
         # 
         self.parms['scene_file']  = str(hou.hipFile.name())
         self.parms['job_name']    = self.generate_unique_job_name(self.parms['scene_file'])
-        # Job name should be driver dependant:
+
+        # FIXME "if rop:"" This isn't clear now
         if rop: 
             self.parms['job_name']    += "_"
             self.parms['job_name']    += rop.name()
 
+            # Use single host for everything (for simulation for example)
+            if self.node.parm("use_one_slot").eval() or rop.type().name() in SINGLE_TASK_NODES:
+                self.parms['step_frame']  = int(self.rop.parm('f2').eval())
+            else:
+                self.parms['step_frame']  = int(self.node.parm('step_frame').eval())
+
         # Requests resurces and licenses (TODO shouldn't we aquire slot here?)
         self.parms['req_license']   = 'hbatchlic=1' 
         self.parms['req_resources'] = 'procslots=%s' % int(self.node.parm('slots').eval())
-
-        # Use single host for everything (for simulation for example)
-        if self.node.parm("use_one_slot").eval():
-            self.parms['step_frame']  = int(self.rop.parm('f2').eval())
-        else:
-            self.parms['step_frame']  = int(self.node.parm('step_frame').eval())
 
         # Use provided frame list instead of frame range. Hscript needs bellow changes to
         # make generic path to work with list of frames: 
@@ -114,11 +117,6 @@ class HbatchFarm(hafarm.HaFarm):
             like renderer command and arguments used to render on farm.
         """
 
-        # Save current state of a scene: 
-        # TODO: Make optional:
-        # We assume hip file is already saved, otherwise have scenes takes ages to export 
-        # with multipy Mantras.
-        # hou.hipFile.save()
 
         #TODO: copy_scene_file should be host specific.:
         result  = self.copy_scene_file()
@@ -381,11 +379,12 @@ def post_render_actions(node, actions, queue='log'):
     post_renders = []
     if node.parm("debug_images").eval():
         for action in actions:
+            # TODO Reenable after fixing ABCMeta issues with HAction.
             # Valid only for Mantra renders;
-            if not isinstance(action, type(MantraFarm)):
-                continue
+            #if not isinstance(action, type(MantraFarm)):
+            #    continue
             # Generate report per file:
-            debug_render = Batch.BatchFarm(job_name = action.parms['job_name'] + "_debug", queue = queue)
+            debug_render = BatchFarm(job_name = action.parms['job_name'] + "_debug", queue = queue)
             debug_render.debug_image(action.parms['output_picture'])
             debug_render.parms['start_frame'] = action.parms['start_frame']
             debug_render.parms['end_frame']   = action.parms['end_frame']
@@ -393,18 +392,19 @@ def post_render_actions(node, actions, queue='log'):
             debug_render.render()
             post_renders.append(debug_render)
             # Merge reports:
-            merger   = Batch.BatchFarm(job_name = action.parms['job_name'] + "_mergeReports", queue = queue)
+            merger   = BatchFarm(job_name = action.parms['job_name'] + "_mergeReports", queue = queue)
             ifd_path = os.path.join(os.getenv("JOB"), 'render/sungrid/ifd')
-            merger.merge_reports(output_picture, ifd_path=ifd_path, resend_frames=node.parm('rerun_bad_frames').eval())
+            merger.merge_reports(action.parms['output_picture'], ifd_path=ifd_path, resend_frames=node.parm('rerun_bad_frames').eval())
             merger.add_input(debug_render)
             post_renders.append(merger)
 
     # Make a movie from proxy frames:
     if node.parm("make_proxy").eval() and node.parm("make_movie").eval():
         for action in actions:
+            # TODO see above
             # Valid only for Mantra renders:
-            if not isinstance(action, type(MantraFarm)):
-                continue
+            #if not isinstance(action, type(MantraFarm)):
+            #    continue
             movie  = Batch.BatchFarm(job_name = action.parms['job_name'] + "_mp4", queue = queue)
             movie.make_movie(action.parms['output_picture'])
             movie.add_input(action)
@@ -464,14 +464,12 @@ def render_pressed(node):
         
     # b) Iterate over inputs 
     hscripts = recursive_farm(node)
-    print hscripts
 
     for action in hscripts:
         # This is not mantra node, we are done here:
         if action.rop.type().name() != "ifd":
             continue
 
-        print "Working on action: %s" % action.parms['job_name']
         # Render randomly selected frames provided by the user in HaFarm parameter:
         if  node.parm("use_frame_list").eval():
             frames = node.parm("frame_list").eval()
@@ -494,8 +492,15 @@ def render_pressed(node):
                 posts += post_render_actions(node, mantras)
     
     # End of story again:
-    actions = hscripts + mantras + posts
-    [action.render() for action in actions]
+    hscripts.reverse()
+    mantras.reverse()
+    posts.reverse()
+
+    [action.render() for action in hscripts]
+    [action.render() for action in mantras]
+    [action.render() for action in posts]
+    for post in posts:
+        print post.parms['job_name']
                
 
 
