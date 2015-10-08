@@ -22,7 +22,7 @@ class RenderManager(object):
         return
 
     @abc.abstractmethod
-    def render(self):
+    def render(self, params):
         '''Sends job to farm. '''
         return
 
@@ -59,7 +59,7 @@ class DummyManager(RenderManager):
     def test_connection(self):
         return True
 
-    def render(self):
+    def render(self, parms):
         return {'DummyManager': 'I do not render, I am a placeholder.'}
 
     def get_queue_list(self):

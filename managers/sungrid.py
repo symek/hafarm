@@ -234,7 +234,7 @@ class Sungrid(RenderManager):
         self.qsub_command = cc 
         return cc
 
-    def _submit_job(self, command=[]):
+    def _submit_job(self, command=None):
         '''Last part of scheduling process by calling backstaged render manager.
         '''
         import subprocess
@@ -251,11 +251,12 @@ class Sungrid(RenderManager):
 
 
 
-    def render(self):
+    def render(self, parms):
         """ This will be called by any derived class, to submit the jobs to farm. 
         Any information are to be provided in HaFarmParms class kept in self.parms
         variable.
         """
+        self.parms = dict(parms)
         result = {}
         result['_create_job_script']      = self._create_job_script()
         result['_create_submit_command']  = self._create_submit_command()
