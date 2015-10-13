@@ -50,6 +50,34 @@ class HaAction(object):
         '''
         return self.inputs
 
+    def insert_input(self, child, actions):
+        ''' Add self to edge between A and B.
+        '''
+        # First find child's parents:
+        parents = child.get_direct_outputs(actions)
+
+        for parent in parents:
+            # Remove child from parents' inputs
+            # and add self instead of it:
+            parent.remove_input(child)
+            parent.add_input(self)
+            
+        # Finally add child to self:
+        self.add_input(child)
+        return True
+
+
+    def get_last_parents(self, actions):
+        '''Returns actions without outputs.
+        '''
+        # FIXME: brute force
+        result = []
+        for action in actions:
+            if not action.get_direct_outputs(actions):
+                result += [action]
+        return result
+
+
     def add_input(self, action): 
         '''Adds input to a node checking if its a array job.
         '''
@@ -59,6 +87,45 @@ class HaAction(object):
 
             if action not in self.inputs:
                 self.inputs.append(action)
+                return True
+        return
+
+    def remove_input(self, action):
+        '''Removes action from self inputs.
+        '''
+        if action in self.inputs:
+            idx = self.inputs.index(action)
+            return self.inputs.pop(idx)
+        return
+
+
+    def get_direct_outputs(self, actions):
+        '''Get actions with self as inputs.
+        '''
+        # FIXME: brute force:
+        result = []
+        for action in actions:
+            if self in action.get_direct_inputs():
+                result += [action]
+        return result
+
+    def render_recursively(self, actions):
+        """Executes render() command of actions in graph order (children first).
+        """
+        def render_children(action):
+            for child in action.get_direct_inputs():
+                render_children(child)
+                print "Submitting: %s" % child.parms['job_name']
+                child.render()
+
+        parents = self.get_last_parents(actions)
+
+        # These are usually inputs to hafarm ROP.
+        # So we need to split recurency for two:
+        for child in parents:
+            render_children(child)
+            child.render()
+            print "Submitting: %s" % child.parms['job_name']
 
 
 class HaFarm(HaAction):
