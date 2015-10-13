@@ -2,7 +2,7 @@ import os, sys
 
 
 # Custom: 
-import hafarm
+from hafarm import HaFarm
 from hafarm import utils
 from hafarm import const
 
@@ -10,7 +10,7 @@ from hafarm import const
 # For some reason this can't be in its own module for now and we'd like to
 # use it across the board, so I put it here. At some point, we should remove haSGE inheritance
 # making it more like a plugin class. At that point, this problem should be reviewed.
-class BatchFarm(hafarm.HaFarm):
+class BatchFarm(HaFarm):
     '''Performs arbitrary script on farm. Also encapsulates utility functions for handling usual tasks.
     like tile merging, dubuging renders etc.'''
     def __init__(self, job_name='', queue='', command='', command_arg=''):
