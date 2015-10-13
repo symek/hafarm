@@ -8,10 +8,13 @@ import hou
 
 # Custom: 
 import hafarm
+# TODO: Remove it from here:
 reload(hafarm)
+
+import Batch
 from hafarm import utils
 from hafarm import const
-from hafarm import BatchFarm
+from Batch import BatchFarm
 
 # Jobs multi-tasking are always diabled for these nodes:
 SINGLE_TASK_NODES = ('alembic', 'mdd', 'channel', 'dop', 'filmboxfbx')
@@ -373,7 +376,7 @@ def mantra_render_from_ifd(node, frames, job_name=None):
 
 
 
-def post_render_actions(node, actions, queue='log'):
+def post_render_actions(node, actions, queue='3d'):
     # Proceed with post-render actions (debug, mp4, etc):
     # Debug images:
     post_renders = []
@@ -412,7 +415,7 @@ def post_render_actions(node, actions, queue='log'):
 
     return post_renders
 
-def recursive_farm(parent):
+def build_recursive_farm(parent):
     '''Builds simple dependency graph from Rops.
     '''
     actions = []
@@ -459,11 +462,12 @@ def render_pressed(node):
         # TODO Make validiation of submiting jobs...
         actions += post_render_actions(node, actions)
         # End of story:
+        actions.reverse()
         [action.render() for action in actions]
         return 
         
     # b) Iterate over inputs 
-    hscripts = recursive_farm(node)
+    hscripts = build_recursive_farm(node)
 
     for action in hscripts:
         # This is not mantra node, we are done here:
@@ -487,21 +491,19 @@ def render_pressed(node):
             else:
                 # Proceed normally (no tiling required):
                 mantra_farm = MantraFarm(node, action.rop, job_name = action.parms['job_name'] + "_mantra")
-                mantra_farm.add_input(action)
+                # Build parent dependency:
+                # We need to modify Houdini's graph as we're adding own stuff (mantra as bellow):
+                # hscriptA --> mantraA --> previously_hscriptA_parent
+                mantra_farm.insert_input(action, hscripts)
+                # 
                 mantras.append(mantra_farm)
                 posts += post_render_actions(node, mantras)
-    
-    # End of story again:
-    hscripts.reverse()
-    mantras.reverse()
-    posts.reverse()
 
-    [action.render() for action in hscripts]
-    [action.render() for action in mantras]
-    [action.render() for action in posts]
-    for post in posts:
-        print post.parms['job_name']
-               
+
+    actions   = hscripts + mantras + posts
+    submitter = actions[0]
+    submitter.render_recursively(actions)
+
 
 
 
