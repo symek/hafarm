@@ -414,31 +414,44 @@ def post_render_actions(node, actions, queue='3d'):
 def build_recursive_farm(parent):
     '''Builds simple dependency graph from Rops.
     '''
-    actions = []
-    rops    = {}
-
     def add_edge(parent, rop, output, actions, rops):
         for node in rop.inputs():
             # This is intermediate hscript ROP which alters 
             # parms above itself:
             if node.type().name() == "HaFarm":
-                add_edge(node, node, output, actions)
+                add_edge(node, node, output, actions, rops)
                 continue
+            # This child already exists in a graph by differnet parent.
+            # Find corresponding hafarm class (in rops dict) and create a link
+            # with current parent instead of replicating child.
             if node in rops.keys():
                 output.add_input(rops[node.name()])
                 continue
+            # Usual case:
             farm = HbatchFarm(parent, node)
-            output.add_input(farm)
+            if output:
+                output.add_input(farm)
             actions.append(farm)
             rops[node.name()] = farm
             add_edge(parent, node, farm, actions, rops)
 
+    
+    actions = []
+    # This is book-keeper while creating graph:
+    rops    = {}
+
     for node in parent.inputs():
-        hfarm = HbatchFarm(parent, node)
-        actions.append(hfarm)
-        rops[node.name()] = hfarm
+        #This is intermediate hscript ROP which alters 
+        #parms above itself:
+        if node.type().name() == "HaFarm":
+            add_edge(node, node, None, actions, rops)
+            continue
+        # 
+        farm = HbatchFarm(parent, node)
+        actions.append(farm)
+        rops[node.name()] = farm
         if node.inputs():
-            add_edge(parent, node, hfarm, actions, rops)
+            add_edge(parent, node, farm, actions, rops)
 
     return actions
  
