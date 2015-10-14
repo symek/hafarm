@@ -427,13 +427,15 @@ def resend_frames_on_farm(db):
     # Lets rerun Debuger:
     if redebug:
         # Generate report per file:
-        debug_render = hafarm.BatchFarm(job_name = job_name + "_debug", queue = '', parent_job_name = job_ids)
+        debug_render = hafarm.BatchFarm(job_name = job_name + "_debug", queue = '')
         debug_render.debug_image(output_picture)
         debug_render.parms['start_frame'] = db['first_frame']
         debug_render.parms['end_frame']   = db['last_frame']
+        [debug_render.add_input(idx) for idx in job_ids]
         debug_render.render()
         # Merge reports:
-        merger   = hafarm.BatchFarm(job_name = job_name + "_mergeReports", queue = '', parent_job_name = [debug_render.parms['job_name']])
+        merger   = hafarm.BatchFarm(job_name = job_name + "_mergeReports", queue = '')
+        merger.add_input(debug_render)
         ifd_path = os.path.join(os.getenv("JOB"), 'render/sungrid/ifd')
         merger.merge_reports(output_picture, ifd_path=ifd_path, resend_frames=False)
         merger.render()
