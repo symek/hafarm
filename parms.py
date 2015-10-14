@@ -41,10 +41,12 @@ class HaFarmParms(dict):
         for key, value in parms_dict.iteritems():
             if isinstance(value, type(u'')):
                 self[str(key)] = str(value)
-            if isinstance(value, type([])):
+            elif isinstance(value, type([])):
                 self[str(key)] = list(value)
-            if isinstance(value, type(())):
+            elif isinstance(value, type(())):
                 self[str(key)] = tuple(value)
+            elif isinstance(value, type("")):
+                self[str(key)] = str(value)
             else:
                 self[str(key)] = copy.deepcopy(value)
 
