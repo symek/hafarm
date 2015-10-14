@@ -8,13 +8,12 @@ import hou
 
 # Custom: 
 import hafarm
-# TODO: Remove it from here:
-reload(hafarm)
 
 import Batch
 from hafarm import utils
 from hafarm import const
 from Batch import BatchFarm
+from hafarm import NullAction
 
 # Jobs multi-tasking are always diabled for these nodes:
 SINGLE_TASK_NODES = ('alembic', 'mdd', 'channel', 'dop', 'filmboxfbx')
@@ -382,17 +381,15 @@ def post_render_actions(node, actions, queue='3d'):
     post_renders = []
     if node.parm("debug_images").eval():
         for action in actions:
-            # TODO Reenable after fixing ABCMeta issues with HAction.
             # Valid only for Mantra renders;
-            #if not isinstance(action, type(MantraFarm)):
-            #    continue
+            if not isinstance(action, MantraFarm):
+               continue
             # Generate report per file:
             debug_render = BatchFarm(job_name = action.parms['job_name'] + "_debug", queue = queue)
             debug_render.debug_image(action.parms['output_picture'])
             debug_render.parms['start_frame'] = action.parms['start_frame']
             debug_render.parms['end_frame']   = action.parms['end_frame']
-            debug_render.add_input(action)
-            debug_render.render()
+            debug_render.insert_input(action, actions)
             post_renders.append(debug_render)
             # Merge reports:
             merger   = BatchFarm(job_name = action.parms['job_name'] + "_mergeReports", queue = queue)
@@ -404,13 +401,12 @@ def post_render_actions(node, actions, queue='3d'):
     # Make a movie from proxy frames:
     if node.parm("make_proxy").eval() and node.parm("make_movie").eval():
         for action in actions:
-            # TODO see above
             # Valid only for Mantra renders:
-            #if not isinstance(action, type(MantraFarm)):
-            #    continue
+            if not isinstance(action, MantraFarm):
+                continue
             movie  = Batch.BatchFarm(job_name = action.parms['job_name'] + "_mp4", queue = queue)
             movie.make_movie(action.parms['output_picture'])
-            movie.add_input(action)
+            movie.insert_input(action, actions)
             post_renders.append(movie)
 
     return post_renders
@@ -434,6 +430,35 @@ def build_recursive_farm(parent):
 
     return actions
  
+
+def render_recursively(actions, dry_run=False):
+    """Executes render() command of actions in graph order (children first).
+    """
+    def render_children(action, submitted):
+        for child in action.get_direct_inputs():
+            if child not in submitted:
+                render_children(child, submitted)
+                if dry_run:
+                    print "Dry submitting: %s" % child.parms['job_name']
+                else:
+                    child.render()
+                submitted += [child]
+
+    submitted = []
+    parents = actions[0].get_all_parents(actions)
+    # These are usually inputs to hafarm ROP (not hafarm class itself)
+    # so I split recurency for two stages:
+    for child in parents:
+        render_children(child, submitted)
+        if child not in submitted:
+            if dry_run:
+                print "Dry submitting: %s" % child.parms['job_name']
+            else:
+                child.render()
+            submitted += [child]
+
+    return submitted
+
 
 def render_pressed(node):
     '''Direct callback from Render button on Hafarm ROP.'''
@@ -462,8 +487,7 @@ def render_pressed(node):
         # TODO Make validiation of submiting jobs...
         actions += post_render_actions(node, actions)
         # End of story:
-        actions.reverse()
-        [action.render() for action in actions]
+        render_recursively(actions)
         return 
         
     # b) Iterate over inputs 
@@ -481,7 +505,7 @@ def render_pressed(node):
             mantra_frames  = mantra_render_frame_list(node, action.rop, action, frames)
             mantras += mantra_frames
             # How to post-proces here? 
-            #actions += post_render_actions(node, mantras)          
+            posts += post_render_actions(node, mantras)          
         else:
             # TODO: Move tiling inside MantraFarm class...
             # Custom tiling:
@@ -500,9 +524,9 @@ def render_pressed(node):
                 posts += post_render_actions(node, mantras)
 
 
+    # Again end of story:
     actions   = hscripts + mantras + posts
-    submitter = actions[0]
-    submitter.render_recursively(actions)
+    render_recursively(actions)
 
 
 
