@@ -417,6 +417,11 @@ def build_recursive_farm(parent):
     actions = []
     def add_edge(parent, rop, output, actions):
         for node in rop.inputs():
+            # This is intermediate hscript ROP which alters 
+            # parms above itself:
+            if node.type().name() == "HaFarm":
+                add_edge(node, node, output, actions)
+                continue
             farm = HbatchFarm(parent, node)
             output.add_input(farm)
             actions.append(farm)
@@ -473,6 +478,7 @@ def render_pressed(node):
     hscripts = []
     mantras  = []
     posts    = []
+    debug_dependency_graph = False
 
     # a) Ignore all inputs and render from provided ifds:
     if node.parm("render_from_ifd").eval():
@@ -485,9 +491,9 @@ def render_pressed(node):
         actions += mantra_render_from_ifd(ifds, start, end, node, frames)
         
         # TODO Make validiation of submiting jobs...
-        actions += post_render_actions(node, actions)
+        actions += post_render_actions(action.node, actions)
         # End of story:
-        render_recursively(actions)
+        render_recursively(actions, debug_dependency_graph)
         return 
         
     # b) Iterate over inputs 
@@ -502,31 +508,31 @@ def render_pressed(node):
         if  node.parm("use_frame_list").eval():
             frames = node.parm("frame_list").eval()
             frames = utils.parse_frame_list(frames)
-            mantra_frames  = mantra_render_frame_list(node, action.rop, action, frames)
+            mantra_frames  = mantra_render_frame_list(action.node, action.rop, action, frames)
             mantras += mantra_frames
             # How to post-proces here? 
-            posts += post_render_actions(node, mantras)          
+            posts += post_render_actions(node, mantra_frames)          
         else:
             # TODO: Move tiling inside MantraFarm class...
             # Custom tiling:
             if action.rop.parm('vm_tile_render').eval():
-                mantras += mantra_render_with_tiles(node, action.rop, action)
+                mantras += mantra_render_with_tiles(action.node, action.rop, action)
                 
             else:
                 # Proceed normally (no tiling required):
-                mantra_farm = MantraFarm(node, action.rop, job_name = action.parms['job_name'] + "_mantra")
+                mantra_farm = MantraFarm(action.node, action.rop, job_name = action.parms['job_name'] + "_mantra")
                 # Build parent dependency:
                 # We need to modify Houdini's graph as we're adding own stuff (mantra as bellow):
                 # hscriptA --> mantraA --> previously_hscriptA_parent
                 mantra_farm.insert_input(action, hscripts)
                 # 
                 mantras.append(mantra_farm)
-                posts += post_render_actions(node, mantras)
+                posts += post_render_actions(action.node, [mantra_farm])
 
 
     # Again end of story:
     actions   = hscripts + mantras + posts
-    render_recursively(actions)
+    render_recursively(actions, debug_dependency_graph)
 
 
 
