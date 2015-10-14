@@ -133,6 +133,7 @@ def parseOptions():
     parser.add_option("-r", "--render_stats", dest='render_stats', action='store_true', default=True, help='Retrive render statistics from render manager.')
     parser.add_option("-d", "--display", dest='display_report', action='store_true', default=False, help="Displays report in web browser.")
     parser.add_option('',   "--mad_threshold", dest='mad_threshold', action='store', default=5.0, type=float, help='Threshold for Median-Absolute-Deviation based small frame estimator.')
+    parser.add_option('',   "--resend_frames", dest='resend_frames', action='store_true', default=True, help="Tries to find jobs parms and send bad frames back on farm.")
     (opts, args) = parser.parse_args(sys.argv[1:])
     return opts, args
 
@@ -391,6 +392,56 @@ def get_render_stats(job_name):
     farm = hafarm.HaFarm()
     return farm.get_job_stats(job_name)
 
+
+def resend_frames_on_farm(db):
+    '''Tries to render bad/missing frames again.
+    '''
+    import hafarm
+    script_path = const.hafarm_defaults['script_path']
+    script_path = os.path.expandvars(script_path)
+    job_name    = str(db['job_name'])
+    parms_file = os.path.join(script_path, job_name + '.json')
+    redebug    = False
+
+    if not os.path.isfile(parms_file):
+        print "Error: No parms file for %s job found." % job_name
+        return
+
+    output_picture = ''
+    job_ids = []
+    for frame_num in db['frames']:
+        frame = db['frames'][frame_num]
+        if not frame['exists'] or not frame['integrity'] \
+        or frame['small_frame']:
+            redebug = True
+            output_picture = str(frame['file'])
+            farm = hafarm.HaFarm()
+            farm.load_parms_from_file(parms_file)
+            farm.parms['start_frame'] = frame_num
+            farm.parms['end_frame']   = frame_num
+            farm.render()
+            job_ids.append(farm.parms['job_name'])
+            db['resent_frames'] += [frame_num]
+
+
+    # Lets rerun Debuger:
+    if redebug:
+        # Generate report per file:
+        debug_render = hafarm.BatchFarm(job_name = job_name + "_debug", queue = '')
+        debug_render.debug_image(output_picture)
+        debug_render.parms['start_frame'] = db['first_frame']
+        debug_render.parms['end_frame']   = db['last_frame']
+        [debug_render.add_input(idx) for idx in job_ids]
+        debug_render.render()
+        # Merge reports:
+        merger   = hafarm.BatchFarm(job_name = job_name + "_mergeReports", queue = '')
+        merger.add_input(debug_render)
+        ifd_path = os.path.join(os.getenv("JOB"), 'render/sungrid/ifd')
+        merger.merge_reports(output_picture, ifd_path=ifd_path, resend_frames=False)
+        merger.render()
+
+
+
 def main():
     options, args = parseOptions()
     html          = ""
@@ -409,7 +460,9 @@ def main():
           'pattern'    : utils.padding(args[0], 'shell'),
           'job_name'   : '',
           'frames'     : {},
-          'time_stamp' : time.time() }
+          'time_stamp' : time.time(),
+          'resent_frames': []
+          }
 
 
     # Merge json files previsouly generated:
@@ -426,7 +479,8 @@ def main():
     #if options.ifd_path:
     #    ifd_stats = get_ifd_stats(db['job_name'], options.ifd_path)
 
-
+    if options.resend_frames:
+        resend_frames_on_farm(db)
 
     # # Present report:
     if options.save_html or options.send_email:

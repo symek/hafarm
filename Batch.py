@@ -2,7 +2,7 @@ import os, sys
 
 
 # Custom: 
-import hafarm
+from hafarm import HaFarm
 from hafarm import utils
 from hafarm import const
 
@@ -10,20 +10,21 @@ from hafarm import const
 # For some reason this can't be in its own module for now and we'd like to
 # use it across the board, so I put it here. At some point, we should remove haSGE inheritance
 # making it more like a plugin class. At that point, this problem should be reviewed.
-class BatchFarm(hafarm.HaFarm):
+class BatchFarm(HaFarm):
     '''Performs arbitrary script on farm. Also encapsulates utility functions for handling usual tasks.
     like tile merging, dubuging renders etc.'''
-    def __init__(self, job_name='', parent_job_name=[], parent_array_name=[], queue='', command='', command_arg=''):
+    def __init__(self, job_name='', queue='', command='', command_arg=''):
         super(BatchFarm, self).__init__()
         self.parms['queue']          = queue
-        self.parms['job_name']       = job_name
         self.parms['command']        = command
         self.parms['command_arg']    = [command_arg]
-        self.parms['hold_jid']       = parent_job_name
-        self.parms['hold_jid_ad']    = parent_array_name
         self.parms['ignore_check']   = True
         self.parms['slots']          = 1
         self.parms['req_resources'] = ''
+        self.parms['end_frame']     = 1
+        if not job_name:
+            job_name = self.generate_unique_job_name()
+        self.parms['job_name']       = job_name
 
     def join_tiles(self, filename, start, end, ntiles):
         '''Creates a command specificly for merging tiled rendering with oiiotool.'''
@@ -96,19 +97,20 @@ class BatchFarm(hafarm.HaFarm):
             self.parms['end_frame']   = end
        
 
-    def merge_reports(self, filename, ifd_path=None, send_email=True, mad_threshold=5.0):
+    def merge_reports(self, filename, ifd_path=None, send_email=True, mad_threshold=5.0, resend_frames=False):
         ''' Merges previously generated debug reports per frame, and do various things
             with that, send_emials, save on dist as json/html etc.
         '''
         # 
-        send_email = '--send_email' # ON BY DEFAULT if send_email else ""
-        ifd_path   = '--ifd_path %s' % ifd_path if ifd_path else ""
+        send_email    = '--send_email' # ON BY DEFAULT if send_email else ""
+        ifd_path      = '--ifd_path %s' % ifd_path if ifd_path else ""
+        resend_frames = '--resend_frames' if resend_frames else ""
         # 
         path, filename = os.path.split(filename)
         details = utils.padding(filename, 'shell')
         log_path = os.path.expandvars(self.parms['log_path'])
         self.parms['scene_file'] =  os.path.join(log_path, details[0]) + '.json'
-        self.parms['command']    = '$HAFARM_HOME/scripts/generate_render_report.py %s %s --mad_threshold %s --save_html ' % (send_email, ifd_path, mad_threshold)
+        self.parms['command']    = '$HAFARM_HOME/scripts/generate_render_report.py %s %s %s --mad_threshold %s --save_html ' % (send_email, ifd_path, resend_frames, mad_threshold)
         self.parms['start_frame'] = 1
         self.parms['end_frame']   = 1
 
