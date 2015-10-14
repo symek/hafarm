@@ -415,23 +415,28 @@ def build_recursive_farm(parent):
     '''Builds simple dependency graph from Rops.
     '''
     actions = []
-    def add_edge(parent, rop, output, actions):
+    rops    = []
+    def add_edge(parent, rop, output, actions, rops):
         for node in rop.inputs():
             # This is intermediate hscript ROP which alters 
             # parms above itself:
             if node.type().name() == "HaFarm":
                 add_edge(node, node, output, actions)
                 continue
+            if node in rops:
+                continue
             farm = HbatchFarm(parent, node)
             output.add_input(farm)
             actions.append(farm)
-            add_edge(parent, node, farm, actions)
+            rops.append(node)
+            add_edge(parent, node, farm, actions, rops)
 
     for node in parent.inputs():
         hfarm = HbatchFarm(parent, node)
         actions.append(hfarm)
+        rops.append(node)
         if node.inputs():
-            add_edge(parent, node, hfarm, actions)
+            add_edge(parent, node, hfarm, actions, rops)
 
     return actions
  
