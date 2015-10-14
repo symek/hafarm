@@ -146,7 +146,7 @@ class NullAction(HaAction):
     def add_input(self, action):
         if action not in self.inputs:
             self.inputs.append(action)
-    def render():
+    def render(self):
         pass
 
 
