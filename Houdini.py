@@ -424,6 +424,8 @@ def build_recursive_farm(hafarm_rop):
         for node in parent.rop.inputs():
             #This is usually intermediate hscript ROP which alters 
             #parms above itself or any other not supported node:
+            if node.name() in rops.keys():
+                continue
             if not is_supported(node):
                 farm      = NullAction()
                 farm.parms = {'job_name': node.name()}
@@ -431,7 +433,7 @@ def build_recursive_farm(hafarm_rop):
                 farm.node = hafarm_rop
                 if node.type().name() == "HaFarm":
                     farm.node   = node
-                    hafarm_node = node
+                    hafarm_rop = node
             else:
                 farm = HbatchFarm(hafarm_rop, node)
 
@@ -446,6 +448,7 @@ def build_recursive_farm(hafarm_rop):
     rops    = {}
 
     null = NullAction()
+    # FIXME: Move to class definition.
     null.parms = {'job_name': hafarm_rop.name()}
     null.parent = True
     null.node   = hafarm_rop
@@ -475,7 +478,11 @@ def render_recursively(actions, dry_run=False):
     # so I split recurency for two stages:
     for child in parents:
         render_children(child, submitted)
-
+        if dry_run:
+            print "Dry submitting: %s with settings from %s" % (child.parms['job_name'], child.node.name())
+        else:
+            child.render()
+        submitted += [child]
     return submitted
 
 
@@ -492,7 +499,7 @@ def render_pressed(node):
     hscripts = []
     mantras  = []
     posts    = []
-    debug_dependency_graph = True
+    debug_dependency_graph = False
 
     # a) Ignore all inputs and render from provided ifds:
     if node.parm("render_from_ifd").eval():
@@ -546,12 +553,13 @@ def render_pressed(node):
 
     # Again end of story:
     actions   = hscripts + mantras + posts
-    print
     render_recursively(actions, debug_dependency_graph)
-    print
-    for node in hscripts:
-        children = ", ".join([job.rop.name() for job in node.get_direct_inputs()])
-        print "%s children are: %s" % (node.rop.name(), children)
+    # TEMPORARY DEBUG:
+    if debug_dependency_graph:
+        print
+        for node in hscripts:
+            children = ", ".join([job.rop.name() for job in node.get_direct_inputs()])
+            print "%s children are: %s" % (node.rop.name(), children)
 
 
 
