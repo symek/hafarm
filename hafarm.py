@@ -22,6 +22,8 @@ class Graph(dict):
 class HaResource(object):
     pass
 
+
+
 #TODO: This isn't still  correct...
 class HaAction(object):
     #__metaclass__ = abc.ABCMeta
@@ -30,10 +32,18 @@ class HaAction(object):
         '''
         self.inputs = []
 
-    def get_all_actions(self, graph):
+    def get_all_inputs(self):
         '''Returns a list of all input actions (including indirect inputs).
         '''
-        pass
+        def get_inputs_recurently(action, actions):
+            for child in action.get_direct_inputs():
+                actions += [child]
+                actions += get_inputs_recurently(child, actions)
+            return actions
+
+        actions = []
+        actions = get_inputs_recurently(self, actions)
+        return actions
 
     def is_related(self, action, graph):
         '''Finds if provided action relates on current action.
@@ -66,16 +76,35 @@ class HaAction(object):
         self.add_input(child)
         return True
 
-
-    def get_last_parents(self, actions):
-        '''Returns actions without outputs.
+    def get_all_parents(self, actions):
+        ''' Returns a list of actions without outputs.
         '''
-        # FIXME: brute force
-        result = []
+         # FIXME: brute force
+        parents = []
         for action in actions:
             if not action.get_direct_outputs(actions):
-                result += [action]
-        return result
+                parents += [action]
+        return parents
+
+
+    def get_output_parent(self, actions):
+        '''Returns a single action without outputs and with the longest children list.
+        '''
+        # FIXME: brute force
+        parents = []
+        winner  = 0
+        output  = None
+        for action in actions:
+            if not action.get_direct_outputs(actions):
+                parents += [action]
+
+        for parent in parents:
+            nchildren = len(parent.get_all_inputs())
+            if nchildren > winner:
+                output = parent
+                winner = nchildren
+
+        return output
 
 
     def add_input(self, action): 
@@ -109,23 +138,17 @@ class HaAction(object):
                 result += [action]
         return result
 
-    def render_recursively(self, actions):
-        """Executes render() command of actions in graph order (children first).
-        """
-        def render_children(action):
-            for child in action.get_direct_inputs():
-                render_children(child)
-                print "Submitting: %s" % child.parms['job_name']
-                child.render()
 
-        parents = self.get_last_parents(actions)
 
-        # These are usually inputs to hafarm ROP.
-        # So we need to split recurency for two:
-        for child in parents:
-            render_children(child)
-            child.render()
-            print "Submitting: %s" % child.parms['job_name']
+class NullAction(HaAction):
+    def __init__(self):
+        super(NullAction, self).__init__()
+    def add_input(self, action):
+        if action not in self.inputs:
+            self.inputs.append(action)
+    def render():
+        pass
+
 
 
 class HaFarm(HaAction):
@@ -207,8 +230,10 @@ class HaFarm(HaAction):
             if os.path.islink(scene_file):
                 linkto = os.readlink(scene_file)
                 os.symlink(linkto, new_scene_file)
-            else:
+            elif scene_file != new_scene_file:
                 shutil.copy2(scene_file, new_scene_file)
+            else:
+                self.logger.debug("Scene file already copied. %s " % new_scene_file)
         except (IOError, os.error), why:
             self.logger.debug('%s: %s' % (new_scene_file, why))
             new_scene_file = None
