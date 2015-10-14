@@ -389,12 +389,14 @@ def post_render_actions(node, actions, queue='3d'):
             debug_render.debug_image(action.parms['output_picture'])
             debug_render.parms['start_frame'] = action.parms['start_frame']
             debug_render.parms['end_frame']   = action.parms['end_frame']
+            debug_render.node = action.node
             debug_render.insert_input(action, actions)
             post_renders.append(debug_render)
             # Merge reports:
             merger   = BatchFarm(job_name = action.parms['job_name'] + "_mergeReports", queue = queue)
             ifd_path = os.path.join(os.getenv("JOB"), 'render/sungrid/ifd')
             merger.merge_reports(action.parms['output_picture'], ifd_path=ifd_path, resend_frames=node.parm('rerun_bad_frames').eval())
+            merger.node = action.node
             merger.add_input(debug_render)
             post_renders.append(merger)
 
@@ -406,54 +408,52 @@ def post_render_actions(node, actions, queue='3d'):
                 continue
             movie  = Batch.BatchFarm(job_name = action.parms['job_name'] + "_mp4", queue = queue)
             movie.make_movie(action.parms['output_picture'])
+            movie.node = action.node
             movie.insert_input(action, actions)
             post_renders.append(movie)
 
     return post_renders
 
-def build_recursive_farm(parent):
+def build_recursive_farm(hafarm_rop):
     '''Builds simple dependency graph from Rops.
     '''
-    def add_edge(parent, rop, output, actions, rops):
-        for node in rop.inputs():
-            # This is intermediate hscript ROP which alters 
-            # parms above itself:
-            if node.type().name() == "HaFarm":
-                add_edge(node, node, output, actions, rops)
-                continue
-            # This child already exists in a graph by differnet parent.
-            # Find corresponding hafarm class (in rops dict) and create a link
-            # with current parent instead of replicating child.
-            if node in rops.keys():
-                output.add_input(rops[node.name()])
-                continue
-            # Usual case:
-            farm = HbatchFarm(parent, node)
-            if output:
-                output.add_input(farm)
-            actions.append(farm)
-            rops[node.name()] = farm
-            add_edge(parent, node, farm, actions, rops)
+    def is_supported(node):
+        return  node.type().name() in SINGLE_TASK_NODES + ('ifd', 'geometry')
 
+    def add_edge(parent, hafarm_rop, actions, rops):
+        for node in parent.rop.inputs():
+            #This is usually intermediate hscript ROP which alters 
+            #parms above itself or any other not supported node:
+            if not is_supported(node):
+                farm      = NullAction()
+                farm.parms = {'job_name': node.name()}
+                farm.rop  = node
+                farm.node = hafarm_rop
+                if node.type().name() == "HaFarm":
+                    farm.node   = node
+                    hafarm_node = node
+            else:
+                farm = HbatchFarm(hafarm_rop, node)
+
+            actions.append(farm)
+            parent.add_input(farm)
+            rops[node.name()] = farm
+            if node.inputs():
+                add_edge(farm, hafarm_rop, actions, rops)
     
     actions = []
     # This is book-keeper while creating graph:
     rops    = {}
 
-    for node in parent.inputs():
-        #This is intermediate hscript ROP which alters 
-        #parms above itself:
-        if node.type().name() == "HaFarm":
-            add_edge(node, node, None, actions, rops)
-            continue
-        # 
-        farm = HbatchFarm(parent, node)
-        actions.append(farm)
-        rops[node.name()] = farm
-        if node.inputs():
-            add_edge(parent, node, farm, actions, rops)
+    null = NullAction()
+    null.parms = {'job_name': hafarm_rop.name()}
+    null.parent = True
+    null.node   = hafarm_rop
+    null.rop    = hafarm_rop
+  
+    add_edge(null, hafarm_rop, actions, rops)
 
-    return actions
+    return [null] + actions
  
 
 def render_recursively(actions, dry_run=False):
@@ -464,7 +464,7 @@ def render_recursively(actions, dry_run=False):
             if child not in submitted:
                 render_children(child, submitted)
                 if dry_run:
-                    print "Dry submitting: %s" % child.parms['job_name']
+                    print "Dry submitting: %s with settings from %s" % (child.parms['job_name'], child.node.name())
                 else:
                     child.render()
                 submitted += [child]
@@ -475,12 +475,6 @@ def render_recursively(actions, dry_run=False):
     # so I split recurency for two stages:
     for child in parents:
         render_children(child, submitted)
-        if child not in submitted:
-            if dry_run:
-                print "Dry submitting: %s" % child.parms['job_name']
-            else:
-                child.render()
-            submitted += [child]
 
     return submitted
 
@@ -498,7 +492,7 @@ def render_pressed(node):
     hscripts = []
     mantras  = []
     posts    = []
-    debug_dependency_graph = False
+    debug_dependency_graph = True
 
     # a) Ignore all inputs and render from provided ifds:
     if node.parm("render_from_ifd").eval():
@@ -552,7 +546,13 @@ def render_pressed(node):
 
     # Again end of story:
     actions   = hscripts + mantras + posts
+    print
     render_recursively(actions, debug_dependency_graph)
+    print
+    for node in hscripts:
+        children = ", ".join([job.rop.name() for job in node.get_direct_inputs()])
+        print "%s children are: %s" % (node.rop.name(), children)
+
 
 
 
