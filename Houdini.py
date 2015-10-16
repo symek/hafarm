@@ -521,7 +521,7 @@ def render_pressed(node):
         actions += mantra_render_from_ifd(ifds, start, end, node, frames)
         
         # TODO Make validiation of submiting jobs...
-        actions += post_render_actions(action.node, actions)
+        actions += post_render_actions(node, actions)
         # End of story:
         render_recursively(actions, debug_dependency_graph)
         return 
