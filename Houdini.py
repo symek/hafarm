@@ -541,7 +541,7 @@ def render_pressed(node):
             mantra_frames  = mantra_render_frame_list(action.node, action.rop, action, frames)
             mantras += mantra_frames
             # How to post-proces here? 
-            posts += post_render_actions(node, mantra_frames)          
+            posts += post_render_actions(action.node, mantra_frames)          
         else:
             # TODO: Move tiling inside MantraFarm class...
             # Custom tiling:
