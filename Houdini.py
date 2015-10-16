@@ -459,31 +459,37 @@ def build_recursive_farm(hafarm_rop):
     return [null] + actions
  
 
-def render_recursively(actions, dry_run=False):
+def render_recursively(actions, dry_run=False, ignore_types=[]):
     """Executes render() command of actions in graph order (children first).
     """
-    def render_children(action, submitted):
+    def render_children(action, submitted, ignore_types):
         for child in action.get_direct_inputs():
             if child not in submitted:
-                render_children(child, submitted)
+                render_children(child, submitted, ignore_types)
+                if True in [isinstance(child, t) for t in ignore_types]:
+                    continue
                 if dry_run:
                     print "Dry submitting: %s with settings from %s" % (child.parms['job_name'], child.node.name())
                 else:
                     child.render()
-                submitted += [child]
+                    submitted += [child]
 
     submitted = []
     parents = actions[0].get_all_parents(actions)
     # These are usually inputs to hafarm ROP (not hafarm class itself)
     # so I split recurency for two stages:
     for child in parents:
-        render_children(child, submitted)
+        render_children(child, submitted, ignore_types)
+        if True in [isinstance(child, t) for t in ignore_types]:
+            continue
         if dry_run:
             print "Dry submitting: %s with settings from %s" % (child.parms['job_name'], child.node.name())
         else:
             child.render()
-        submitted += [child]
+            submitted += [child]
+
     return submitted
+
 
 
 def render_pressed(node):
@@ -499,7 +505,7 @@ def render_pressed(node):
     hscripts = []
     mantras  = []
     posts    = []
-    debug_dependency_graph = False
+    debug_dependency_graph = node.parm("debug_graph").eval()
 
     # a) Ignore all inputs and render from provided ifds:
     if node.parm("render_from_ifd").eval():
@@ -551,6 +557,12 @@ def render_pressed(node):
                 posts += post_render_actions(action.node, [mantra_farm])
 
 
+    # Debug previous renders (ignore all rops but debugers) mode:
+    if node.parm('debug_previous_render'):
+        if node.parm('debug_previous_render').eval():
+            render_recursively(posts, debug_dependency_graph, ignore_types=[MantraFarm, HbatchFarm])
+            return
+ 
     # Again end of story:
     actions   = hscripts + mantras + posts
     render_recursively(actions, debug_dependency_graph)
