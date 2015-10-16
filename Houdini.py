@@ -426,7 +426,7 @@ def build_recursive_farm(hafarm_rop):
             #parms above itself or any other not supported node:
             if node.name() in rops.keys():
                 continue
-            if not is_supported(node):
+            if not is_supported(node) or node.isBypassed():
                 farm      = NullAction()
                 farm.parms = {'job_name': node.name()}
                 farm.rop  = node
