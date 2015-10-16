@@ -133,7 +133,7 @@ def parseOptions():
     parser.add_option("-r", "--render_stats", dest='render_stats', action='store_true', default=True, help='Retrive render statistics from render manager.')
     parser.add_option("-d", "--display", dest='display_report', action='store_true', default=False, help="Displays report in web browser.")
     parser.add_option('',   "--mad_threshold", dest='mad_threshold', action='store', default=5.0, type=float, help='Threshold for Median-Absolute-Deviation based small frame estimator.')
-    parser.add_option('',   "--resend_frames", dest='resend_frames', action='store_true', default=True, help="Tries to find jobs parms and send bad frames back on farm.")
+    parser.add_option('',   "--resend_frames", dest='resend_frames', action='store_true', default=False, help="Tries to find jobs parms and send bad frames back on farm.")
     (opts, args) = parser.parse_args(sys.argv[1:])
     return opts, args
 
@@ -231,6 +231,7 @@ def generate_html(db, render_stats=None, ifd_stats=None, errors_only=False):
     info += INFO_ROW % ('Started', ctime(render_times[0]))
     info += INFO_ROW % ('Ended: ', ctime(render_times[-1]))
     info += INFO_ROW % ('Missing', ", ".join([str(f) for f in db['missing_frames']]))
+    info += INFO_ROW % ('Resent', ", ".join([str(f) for f in db['resent_frames']]))
     info += INFO_ROW % ('Path', LINK_FILE % ('file://'+db['pattern'], db['pattern']))
 
     # Links to additional fiels on disk
@@ -392,6 +393,51 @@ def get_render_stats(job_name):
     farm = hafarm.HaFarm()
     return farm.get_job_stats(job_name)
 
+def find_last_jobScript(db, pattern='*_mantra.json'):
+    '''Iterate over json parms files, find which ones were rendering into same
+       image pattern, then choose the youngest one.
+       This is something we would like to get rid of, once we
+       will have database in place.
+    '''
+    import hafarm
+    from operator import itemgetter
+
+    #
+    script_path = const.hafarm_defaults['script_path']
+    script_path = os.path.expandvars(script_path)
+    parms_files = os.path.join(script_path, pattern)
+    # List of real files on disk:
+    parms_files = glob.glob(parms_files)
+    parms_dict  = {}
+
+    # pattern like *.json 
+    pattern_padded = db['pattern']
+    print "Pattern to match: %s " % pattern_padded
+    # Go through files on disk:
+    for file_name in parms_files:
+        with open(file_name, 'r') as file:
+            print 'opening %s' % file_name
+            jfile = json.load(file)
+            if 'parms' in jfile.keys():
+                if 'output_picture' in jfile['parms'].keys():
+                    output_pattern = utils.padding(jfile['parms']['output_picture'], 'shell')[0]
+                    if pattern_padded == output_pattern:
+                        print 'Adding file %s to a list of candidates' % file_name
+                        jfile['json_file_name'] = file_name
+                        parms_dict[jfile['parms']['submission_time']] = jfile
+
+    # 
+    if not parms_dict:
+        return None
+        
+    # Params sorted with submission time. The last one will be the youngest one.
+    submissions = sorted(parms_dict.keys())
+    candidate = parms_dict[submissions[-1]]
+    print 'Assuming parms from %s ' % str(time.ctime(candidate['parms']['submission_time']))
+    print candidate
+    return candidate['json_file_name']
+
+
 
 def resend_frames_on_farm(db):
     '''Tries to render bad/missing frames again.
@@ -405,7 +451,12 @@ def resend_frames_on_farm(db):
 
     if not os.path.isfile(parms_file):
         print "Error: No parms file for %s job found." % job_name
-        return
+        print "Trying to find proper parms file for: %s" % db['pattern']
+        parms_file = find_last_jobScript(db)
+        if not os.path.isfile(str(parms_file)):
+            print "...Nothing found! Can't resubmit job without parms file."
+            return None
+
 
     output_picture = ''
     job_ids = []

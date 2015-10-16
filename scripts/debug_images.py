@@ -43,6 +43,8 @@ def proceed_sequence(sequence, db, first_frame, last_frame):
     nans = 0
     infs = 0
     res  = (0,0)
+    integrity = True
+    exists = True
     missing_frames = []
     file_sizes = []
 
@@ -59,12 +61,13 @@ def proceed_sequence(sequence, db, first_frame, last_frame):
         output, error = sp.communicate()
 
         if not output or error:
+            print output
             print error
-            return integrity
+            return False
 
         for line in output:
-            if line.startswith("Integrity"):
-                if not "File OK" in line:
+            if line.startswith("Integrity:"):
+                if "File bad" in line:
                     integrity = False
                 break
         return integrity
@@ -73,15 +76,16 @@ def proceed_sequence(sequence, db, first_frame, last_frame):
         """oiiotool loop."""
         nans = 0
         infs = 0
-        integrity = True
         res  = (0,0)
+        integrity = True
         oiiotool_bin = os.path.expandvars(const.OIIOTOOL)
         sp = subprocess.Popen([oiiotool_bin, '--stats', image], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         output, error = sp.communicate()
         
         if error or not output:
+            print output
             print error
-            return nans, infs, res
+            return nans, infs, res, False
 
         for line in output:
             if "NanCount:" in line:
@@ -98,7 +102,7 @@ def proceed_sequence(sequence, db, first_frame, last_frame):
                 _infs= sum([int(x) for x in _infs])
                 if _infs:
                     infs = _infs
-        return nans, infs, res
+        return nans, infs, res, integrity
 
 
 
@@ -117,7 +121,7 @@ def proceed_sequence(sequence, db, first_frame, last_frame):
             # iinfo run:
             integrity = iinfo_output(image)
             # oiiotool run:
-            nans, infs, res = oiiotool_output(image)
+            nans, infs, res, integrity = oiiotool_output(image)
             
             # Get size in kbytes:
             size = os.path.getsize(image)
@@ -156,6 +160,23 @@ def get_ifd_stats(job_name, ifd_path):
         stats['frames'][seq[1]]['ifd_size'] = size
     return stats
 
+def save_json(options, db, images):
+    path = const.hafarm_defaults['log_path']
+    path = os.path.expandvars(path)
+
+    # FIXME: This is little messy...
+    tmp, report = os.path.split(options.image_pattern)
+
+    # Single frame mode shouldn't strip off padding, like does version above:
+    if len(images) == 1:
+        report  = os.path.split(images[0] + ".")[1]
+
+    # Add log path, frame and the extension acording to requested save format:
+    report = os.path.join(path, report + "%s")
+    with open(report % 'json', 'w') as file:
+        json.dump(db, file, indent=2)
+
+
 def main():
     """Run over files that match pattern to scan their qualities with
     command line image tools chain. Stores result in html and sand optionally
@@ -165,6 +186,11 @@ def main():
     single_frame  = False
     render_stats  = None
     ifd_stats     = None
+    db = {'first_frame': 0,
+      'last_frame' : 0,
+      'pattern'    : options.image_pattern,
+      'job_name'   : options.job_name,
+      'frames'     : {} }
 
     if not options.job_name:
         options.job_name = os.getenv("JOB_NAME", "")
@@ -176,36 +202,52 @@ def main():
 
     # Find images matching pattern, 
     # the real sequence on disk:
+    # TODO Add argument to overwrite framge range on disk.
     pattern       = os.path.abspath(options.image_pattern)
     pattern       = os.path.expandvars(pattern)
     images        = glob.glob(pattern)
     images.sort()
 
-    # If pattern returned single frame, we assume user 
-    # wants to examine single file from a siquence. 
-    if len(images) == 1:
-        single_frame = True
-    if len(images) == 0:
-        print "No images found: %s" % options.image_pattern
-        sys.exit()
+    # In case image pattern was blank:
+    if not images:
+        tmp = utils.padding(pattern)
+        print "No image found: %s" % options.image_pattern
+        db['frames'][tmp[1]] = {'exists': False,
+                     'integrity': False,
+                     'file': 0,
+                     'nans': 0,
+                     'infs': 0,
+                     'resolution': (0,0),
+                     'size': 0,
+                     'small_frame': False}
+        db['file_sizes'] = [0]
+        db['missing_frames'] = [tmp[1]]
 
-    # Some feedback to user. 
-    print sys.argv[0] + " proceeds %s files: %s" % (len(images), images[0])
+        if options.save_json:
+            save_json(options, db, [pattern])
+        else:
+            print db
+        return
 
-    # Get first and last frame on disk
-    # TODO Add argument to overwrite framge range on disk.
+    # Get info
     tmp         = utils.padding(images[0])
     sequence    = utils.padding(images[-1])
     first_frame = tmp[1]
     last_frame  = sequence[1]
 
+    # If pattern returned single frame, we assume user 
+    # wants to examine single file from a siquence. 
+    if len(images) == 1:
+        single_frame = True
+
+    # Some feedback to user. 
+    print sys.argv[0] + " proceeds %s files: %s" % (len(images), images[0])
+
+
     # Our main container:
     # TODO: Make it custom class Sequance(dict)
-    db = {'first_frame': first_frame,
-          'last_frame' : last_frame,
-          'pattern'    : options.image_pattern,
-          'job_name'   : options.job_name,
-          'frames'     : {} }
+    db['first_frame'] = first_frame
+    db['last_frame']  = last_frame
 
     
     # Run over all frames to gather per-frame information:
@@ -214,17 +256,7 @@ def main():
 
     # Present report:
     if options.save_json:
-        path = const.hafarm_defaults['log_path']
-        path = os.path.expandvars(path)
-
-        # FIXME: This is little messy...
-        tmp, report = os.path.split(options.image_pattern)
-        # Single frame mode shouldn't strip off padding, like does version above:
-        if single_frame: report  = os.path.split(images[0] + ".")[1]
-        # Add log path, frame and the extension acording to requested save format:
-        report = os.path.join(path, report + "%s")
-        with open(report % 'json', 'w') as file:
-            json.dump(db, file, indent=2)
+        save_json(options, db, images)
     else:
         print db
 
