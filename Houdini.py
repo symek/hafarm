@@ -422,6 +422,9 @@ def build_recursive_farm(hafarm_rop):
 
     def add_edge(parent, hafarm_rop, actions, rops):
         for node in parent.rop.inputs():
+            # Houdini sometimes keep None inputs...
+            if not node:
+                continue
             #This is usually intermediate hscript ROP which alters 
             #parms above itself or any other not supported node:
             if node.name() in rops.keys():
