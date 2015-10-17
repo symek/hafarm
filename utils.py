@@ -160,3 +160,30 @@ def parse_qacct(output, db=None):
         db['frames'][int(frame['taskid'])] = frame
 
     return db
+
+
+def collapse_digits_to_sequence(frames):
+    ''' Given frames is a list/tuple of digits [1,2,4],  
+        collapse it into [(1,2), (4,..) ...]
+    '''
+    frames = sorted(list(frames))
+    frames = [int(x) for x in frames]
+    sequence = [] 
+    start = True
+
+    for f in frames:
+        if start: 
+            part = [f,f]
+            sequence += [part]
+            start   = False
+            continue
+        if (f - 1) == frames[frames.index(f)-1]:
+            part[1] = f
+            continue
+        else:
+            part  = [f,f]
+            sequence += [part]
+
+    sequence = [tuple(x) for x in sequence]
+    return sequence
+

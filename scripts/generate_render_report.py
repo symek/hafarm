@@ -459,37 +459,55 @@ def resend_frames_on_farm(db):
 
 
     output_picture = ''
-    jobs = []
+    frames_to_rerun = []
+    frame = {}
     for frame_num in db['frames']:
         frame = db['frames'][frame_num]
         if not frame['exists'] or not frame['integrity'] \
         or frame['small_frame']:
-            redebug = True
-            output_picture = str(frame['file'])
-            farm = hafarm.HaFarm()
-            farm.load_parms_from_file(parms_file)
-            farm.parms['start_frame'] = frame_num
-            farm.parms['end_frame']   = frame_num
-            farm.render()
-            jobs += [farm]
-            db['resent_frames'] += [frame_num]
+            frames_to_rerun += [frame_num]
 
+    # We now have a list of frames candidates for renrun. 
+    # We should find if IFD are still avaiable, collapse 
+    # single frames into ranges is possible and run frames again:
+    # TODO: Debug IFDs, run hscript if IFD is missing:
+    output_picture = str(frame['file'])
+    sequence_list  = utils.collapse_digits_to_sequence(frames_to_rerun)
+    mantra_list    = []
+    debuger_list   = []
+    actions        = []
 
-    # Lets rerun Debuger:
-    if redebug:
-        # Generate report per file:
-        debug_render = hafarm.BatchFarm(job_name = job_name + "_debug", queue = '')
-        debug_render.debug_image(output_picture)
-        debug_render.parms['start_frame'] = db['first_frame']
-        debug_render.parms['end_frame']   = db['last_frame']
-        [debug_render.add_input(idx) for idx in jobs]
-        debug_render.render()
-        # Merge reports:
-        merger   = hafarm.BatchFarm(job_name = job_name + "_mergeReports", queue = '')
-        merger.add_input(debug_render)
-        ifd_path = os.path.join(os.getenv("JOB"), 'render/sungrid/ifd')
-        merger.merge_reports(output_picture, ifd_path=ifd_path, resend_frames=False)
-        merger.render()
+    print 'Waring! Attempt to rerender following frames: ', sequence_list
+    for seq in sequence_list:
+        redebug = True
+        farm = hafarm.HaFarm()
+        farm.load_parms_from_file(parms_file)
+        farm.parms['start_frame'] = seq[0]
+        farm.parms['end_frame']   = seq[1]
+        mantra_list += [farm]
+        db['resent_frames'] += range(seq[0], seq[1])
+
+        # Lets rerun Debuger:
+        if redebug:
+            # Generate report per file:
+            debug_render = hafarm.BatchFarm(job_name = job_name + "_debug", queue = '')
+            debug_render.debug_image(farm.parms['output_picture'])
+            debug_render.parms['start_frame'] = seq[0]
+            debug_render.parms['end_frame']   = seq[1]
+            debug_render.add_input(farm)
+            debuger_list += [debug_render]
+
+    # Merge reports:
+    merger   = hafarm.BatchFarm(job_name = job_name + "_mergeReports", queue = '')
+    ifd_path = os.path.join(os.getenv("JOB"), 'render/sungrid/ifd')
+    merger.merge_reports(output_picture, ifd_path=ifd_path, resend_frames=False)
+    [merger.add_input(idx) for idx in debuger_list]
+
+    # Run as per frame single task job :
+    [frame.render() for frame in mantra_list]
+    [frame.render() for frame in debuger_list]
+    merger.render()
+    return True
 
 
 
