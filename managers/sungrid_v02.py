@@ -117,10 +117,16 @@ class Sungrid2(RenderManager):
             file.write("echo Scene file  : %s\n" % self.parms['scene_file'])
             #file.write("echo CPU    stats: `mpstat`\n")
 
+            # Pre render script if any:
+            file.write("%s\n" % self.parms['pre_render_script'])
+
             # Finally render command:
             # FIXME: this isn't generic. The only moment we know how the command should look like 
             # is host application class. 
             file.write('%s %s \n' % (self.parms['command'], command_arg))
+
+            # Post render script if any:
+            file.write("%s\n" % self.parms['post_render_script'])
 
             file.write("echo Render ends: `date`\n")
             file.write("echo Render target: %s\n" % self.parms['output_picture'])

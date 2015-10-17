@@ -29,6 +29,8 @@ class NukeFarm(hafarm.HaFarm):
         self.parms['step_frame']      = 5
         self.parms['ignore_check'] = True #FIXME: nuke queue doesn't have check_suspend specifid as availbe sensor,
                                           #Still it appears like it obeys it??? WTF, but doesn't render at all with False.
+        self.parms['pre_render_script'] = 'nuke_tmp_dir=`mktemp -d --tmpdir=/tmp`; export NUKE_TEMP_DIR=$nuke_tmp_dir;\n echo Making Nuke own tmp place in $nuke_tmp_dir '
+        self.parms['post_render_script'] = 'echo Deleting Nukes tmp: $nuke_tmp_dir; rm -rf $NUKE_TEMP_DIR;'
 
     def pre_schedule(self):
         """ This method is called automatically before job submission by HaFarm.
