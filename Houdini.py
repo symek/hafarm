@@ -418,7 +418,7 @@ def build_recursive_farm(hafarm_rop):
     '''Builds simple dependency graph from Rops.
     '''
     def is_supported(node):
-        return  node.type().name() in SINGLE_TASK_NODES + ('ifd', 'geometry')
+        return  node.type().name() in SINGLE_TASK_NODES + ('ifd', 'geometry', 'comp')
 
     def add_edge(parent, hafarm_rop, actions, rops):
         for node in parent.rop.inputs():
