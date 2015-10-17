@@ -386,9 +386,9 @@ def post_render_actions(node, actions, queue='3d'):
                continue
             # Generate report per file:
             debug_render = BatchFarm(job_name = action.parms['job_name'] + "_debug", queue = queue)
-            debug_render.debug_image(action.parms['output_picture'])
-            debug_render.parms['start_frame'] = action.parms['start_frame']
-            debug_render.parms['end_frame']   = action.parms['end_frame']
+            debug_render.debug_image(action.parms['output_picture'], 
+                                     start = action.parms['start_frame'], 
+                                     end   = action.parms['end_frame'])
             debug_render.node = action.node
             debug_render.insert_input(action, actions)
             post_renders.append(debug_render)

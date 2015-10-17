@@ -63,7 +63,11 @@ class BatchFarm(HaFarm):
             path = os.path.join(path, const.PROXY_POSTFIX)
 
             # FIXME: It shouldn't be here at all. 
-            if not os.path.isdir(path): os.mkdir(path)
+            if not os.path.isdir(path): 
+                try:
+                    os.mkdir(path)
+                except OSError, why:
+                    return why
 
             proxy    = os.path.join(path, os.path.splitext(file)[0] + '.jpg')
             command += '--tocolorspace "sRGB" -ch "R,G,B" -o %s ' % proxy
@@ -90,12 +94,26 @@ class BatchFarm(HaFarm):
         # TODO: Need to rethink that
         job_name = self.parms['job_name'].replace("_debug", "")
         details = utils.padding(filename)
+
+        # Make place for debug scripts, as usual this shouldn't be here. 
+        # I don't like random scripts making folders in where ever they wish:
+        # Maybe this is a reason for making some-sort-of file handler?
+        path, file = os.path.split(filename)
+        path       = os.path.join(path, const.DEBUG_POSTFIX)
+        if not os.path.isdir(path):
+            try:
+                os.mkdir(path)
+            except OSError, why:
+                return why
+
         self.parms['scene_file'] =  details[0] + const.TASK_ID_PADDED + details[3]
         self.parms['command']    = '$HAFARM_HOME/scripts/debug_images.py --job %s --save_json -i ' % job_name
         self.parms['frame_padding_length'] = int(details[2])
         if start and end:
             self.parms['start_frame'] = start
             self.parms['end_frame']   = end
+
+        return True
        
 
     def merge_reports(self, filename, ifd_path=None, send_email=True, mad_threshold=5.0, resend_frames=False):
@@ -108,8 +126,8 @@ class BatchFarm(HaFarm):
         resend_frames = '--resend_frames' if resend_frames else ""
         # 
         path, filename = os.path.split(filename)
-        details = utils.padding(filename, 'shell')
-        log_path = os.path.expandvars(self.parms['log_path'])
+        details  = utils.padding(filename, 'shell')
+        log_path = os.path.join(path, const.DEBUG_POSTFIX)
         self.parms['scene_file'] =  os.path.join(log_path, details[0]) + '.json'
         self.parms['command']    = '$HAFARM_HOME/scripts/generate_render_report.py %s %s %s --mad_threshold %s --save_html ' % (send_email, ifd_path, resend_frames, mad_threshold)
         self.parms['start_frame'] = 1

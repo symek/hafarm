@@ -10,6 +10,7 @@ OIIOTOOL = '/opt/packages/oiio-1.4.15/bin/oiiotool.sh'
 MANTRA_FILTER = '/STUDIO/houdini/houdini13.0/scripts/python/HaFilterIFD_v01.py'
 PROXY_POSTFIX = "proxy"
 TILES_POSTFIX = 'tiles'
+DEBUG_POSTFIX = 'debug'
 MAX_CORES      = '@MAX_CORES/>'
 IINFO          = '$HFS/bin/iinfo'
 DEBUG          = 1

@@ -161,11 +161,10 @@ def get_ifd_stats(job_name, ifd_path):
     return stats
 
 def save_json(options, db, images):
-    path = const.hafarm_defaults['log_path']
-    path = os.path.expandvars(path)
 
     # FIXME: This is little messy...
     tmp, report = os.path.split(options.image_pattern)
+    path        = os.path.join(tmp, const.DEBUG_POSTFIX)
 
     # Single frame mode shouldn't strip off padding, like does version above:
     if len(images) == 1:
