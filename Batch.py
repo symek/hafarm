@@ -92,6 +92,7 @@ class BatchFarm(HaFarm):
         details = utils.padding(filename)
         self.parms['scene_file'] =  details[0] + const.TASK_ID_PADDED + details[3]
         self.parms['command']    = '$HAFARM_HOME/scripts/debug_images.py --job %s --save_json -i ' % job_name
+        self.parms['frame_padding_length'] = int(details[2])
         if start and end:
             self.parms['start_frame'] = start
             self.parms['end_frame']   = end
