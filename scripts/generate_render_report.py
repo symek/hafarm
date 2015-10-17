@@ -459,7 +459,7 @@ def resend_frames_on_farm(db):
 
 
     output_picture = ''
-    job_ids = []
+    jobs = []
     for frame_num in db['frames']:
         frame = db['frames'][frame_num]
         if not frame['exists'] or not frame['integrity'] \
@@ -471,7 +471,7 @@ def resend_frames_on_farm(db):
             farm.parms['start_frame'] = frame_num
             farm.parms['end_frame']   = frame_num
             farm.render()
-            job_ids.append(farm.parms['job_name'])
+            jobs += [farm]
             db['resent_frames'] += [frame_num]
 
 
@@ -482,7 +482,7 @@ def resend_frames_on_farm(db):
         debug_render.debug_image(output_picture)
         debug_render.parms['start_frame'] = db['first_frame']
         debug_render.parms['end_frame']   = db['last_frame']
-        [debug_render.add_input(idx) for idx in job_ids]
+        [debug_render.add_input(idx) for idx in jobs]
         debug_render.render()
         # Merge reports:
         merger   = hafarm.BatchFarm(job_name = job_name + "_mergeReports", queue = '')
