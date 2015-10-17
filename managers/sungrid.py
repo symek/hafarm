@@ -125,7 +125,7 @@ class Sungrid(RenderManager):
             # Finally render command:
             # FIXME: this isn't generic. The only moment we know how the command should look like 
             # is host application class. 
-            file.write('%s %s \n' % (self.parms['command'], command_arg))
+            file.write('%s %s %s\n' % (self.parms['command'], command_arg, scene_file))
 
             # Post render script if any:
             file.write("%s\n" % self.parms['post_render_script'])
