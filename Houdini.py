@@ -159,9 +159,6 @@ class MantraFarm(hafarm.HaFarm):
         # Mantra jobs' names are either derived from parent job (hscript)
         # or provided by user (to allow of using ifd names for a job.) 
         if not job_name:
-            if parent_job_name: 
-                job_name  = str(parent_job_name[0]) + '_mantra'
-            else:
                 # Fallback generates name from current time:
                 job_name = utils.convert_seconds_to_SGEDate(time.time()) + "_mantra"
         
@@ -263,7 +260,7 @@ class MantraFarm(hafarm.HaFarm):
         return []
 
 
-def mantra_render_frame_list(node, rop, hscript_farm, frames):
+def mantra_render_frame_list(action, frames):
     """Renders individual frames by sending separately to manager
     This basically means HaFarm doesn't support any batching of random set of frames
     so we manage them individually. Unlike hscript exporter (HBachFarm), which does recognize
@@ -271,12 +268,12 @@ def mantra_render_frame_list(node, rop, hscript_farm, frames):
 
     mantra_frames = []
     for frame in frames:
-        mantra_farm = MantraFarm(node, rop)
+        job_name = action.parms['job_name'] + "_%s" % str(frame)
+        mantra_farm = MantraFarm(action.node, action.rop, job_name=job_name + "_mantra")
         # Single task job:
         mantra_farm.parms['start_frame'] = frame
         mantra_farm.parms['end_frame']   = frame
-        mantra_farm.add_input(hscript_farm)
-        mantra_farm.render()
+        #mantra_farm.add_input(action)
         mantra_frames.append(mantra_farm)
 
     return mantra_frames
@@ -304,7 +301,7 @@ def mantra_render_with_tiles(node, rop, hscript_farm):
                                   queue = str(node.parm('queue').eval()))
 
     # Add dependency....
-    [merger.add_input(tile) for tile in mantra_tiles]
+    [merge_job.add_input(tile) for tile in mantra_tiles]
     # Need to copy it here, as proxies can be made after tiles merging of course...
     merge_job.parms['make_proxy']  = bool(node.parm("make_proxy").eval())
 
@@ -420,79 +417,68 @@ def build_recursive_farm(hafarm_rop):
     def is_supported(node):
         return  node.type().name() in SINGLE_TASK_NODES + ('ifd', 'geometry', 'comp')
 
-    def add_edge(parent, hafarm_rop, actions, rops):
-        for node in parent.rop.inputs():
+    def add_edge(parent, actions, rops):
+        for rop in parent.rop.inputs():
             # Houdini sometimes keep None inputs...
-            if not node:
+            if not rop:
                 continue
             #This is usually intermediate hscript ROP which alters 
             #parms above itself or any other not supported node:
-            if node.name() in rops.keys():
+            if rop.name() in rops.keys():
                 continue
-            if not is_supported(node) or node.isBypassed():
+            if not is_supported(rop) or rop.isBypassed():
+                print "Creating NullAction from %s" % rop.name()
                 farm      = NullAction()
-                farm.parms = {'job_name': node.name()}
-                farm.rop  = node
-                farm.node = hafarm_rop
-                if node.type().name() == "HaFarm":
-                    farm.node   = node
-                    hafarm_rop = node
+                farm.parms = {'job_name': rop.name()}
+                farm.rop  = rop
+                farm.node = parent.node
+                if rop.type().name() == "HaFarm":
+                    farm.node  = rop
             else:
-                farm = HbatchFarm(hafarm_rop, node)
+                farm = HbatchFarm(parent.node, rop)
 
             actions.append(farm)
             parent.add_input(farm)
-            rops[node.name()] = farm
-            if node.inputs():
-                add_edge(farm, hafarm_rop, actions, rops)
+            print "Adding %s to %s inputs." % (farm.rop.name(), parent.rop.name())
+            #print "Inputs are: " + str(parent.get_direct_inputs())
+            rops[rop.name()] = farm
+            if rop.inputs():
+                add_edge(farm, actions, rops)
     
     actions = []
     # This is book-keeper while creating graph:
     rops    = {}
 
-    null = NullAction()
+    root = NullAction()
     # FIXME: Move to class definition.
-    null.parms = {'job_name': hafarm_rop.name()}
-    null.parent = True
-    null.node   = hafarm_rop
-    null.rop    = hafarm_rop
+    root.parms = {'job_name': hafarm_rop.name()}
+    root.parent = True
+    root.node   = hafarm_rop
+    root.rop    = hafarm_rop
   
-    add_edge(null, hafarm_rop, actions, rops)
+    add_edge(root, actions, rops)
 
-    return [null] + actions
+    return root,  actions
  
 
-def render_recursively(actions, dry_run=False, ignore_types=[]):
+def render_recursively(root, dry_run=False, ignore_types=[]):
     """Executes render() command of actions in graph order (children first).
     """
     def render_children(action, submitted, ignore_types):
         for child in action.get_direct_inputs():
+            render_children(child, submitted, ignore_types)
+            if True in [isinstance(child, t) for t in ignore_types]:
+                continue
             if child not in submitted:
-                render_children(child, submitted, ignore_types)
-                if True in [isinstance(child, t) for t in ignore_types]:
-                    continue
                 if dry_run:
                     print "Dry submitting: %s with settings from %s" % (child.parms['job_name'], child.node.name())
                 else:
                     child.render()
-                    submitted += [child]
+                submitted += [child]
 
     submitted = []
-    parents = actions[0].get_all_parents(actions)
-    # These are usually inputs to hafarm ROP (not hafarm class itself)
-    # so I split recurency for two stages:
-    for child in parents:
-        render_children(child, submitted, ignore_types)
-        if True in [isinstance(child, t) for t in ignore_types]:
-            continue
-        if dry_run:
-            print "Dry submitting: %s with settings from %s" % (child.parms['job_name'], child.node.name())
-        else:
-            child.render()
-            submitted += [child]
-
+    render_children(root, submitted, ignore_types)
     return submitted
-
 
 
 def render_pressed(node):
@@ -512,22 +498,27 @@ def render_pressed(node):
 
     # a) Ignore all inputs and render from provided ifds:
     if node.parm("render_from_ifd").eval():
+        root = NullAction()
         frames = []
         # support selective frames as well:
         if  node.parm("use_frame_list").eval():
             frames = node.parm("frame_list").eval()
             frames = utils.parse_frame_list(frames)
 
-        actions += mantra_render_from_ifd(ifds, start, end, node, frames)
-        
         # TODO Make validiation of submiting jobs...
-        actions += post_render_actions(node, actions)
+        mantra_frames = mantra_render_from_ifd(node, frames)
+        root.add_inputs(mantra_frames)
+        posts = post_render_actions(node, mantra_frames)
+        root.add_inputs(posts)
         # End of story:
-        render_recursively(actions, debug_dependency_graph)
+        render_recursively(root, debug_dependency_graph)
         return 
         
     # b) Iterate over inputs 
-    hscripts = build_recursive_farm(node)
+    print
+    print "Building dependency graph:"
+    root, hscripts = build_recursive_farm(node)
+
 
     for action in hscripts:
         # This is not mantra node, we are done here:
@@ -535,50 +526,41 @@ def render_pressed(node):
             continue
 
         # Render randomly selected frames provided by the user in HaFarm parameter:
-        if  node.parm("use_frame_list").eval():
-            frames = node.parm("frame_list").eval()
-            frames = utils.parse_frame_list(frames)
-            mantra_frames  = mantra_render_frame_list(action.node, action.rop, action, frames)
-            mantras += mantra_frames
-            # How to post-proces here? 
-            posts += post_render_actions(action.node, mantra_frames)          
+        if  action.node.parm("use_frame_list").eval():
+            frames         = action.node.parm("frame_list").eval()
+            frames         = utils.parse_frame_list(frames)
+            mantra_frames  = mantra_render_frame_list(action, frames)
+            action.insert_inputs(mantra_frames, [root] + hscripts)
         else:
             # TODO: Move tiling inside MantraFarm class...
             # Custom tiling:
             if action.rop.parm('vm_tile_render').eval():
-                mantras += mantra_render_with_tiles(action.node, action.rop, action)
+                mantra_frames = mantra_render_with_tiles(action.node, action.rop, action)
+                action.insert_inputs(mantra_frames, [root] + hscripts) 
                 
             else:
                 # Proceed normally (no tiling required):
-                mantra_farm = MantraFarm(action.node, action.rop, job_name = action.parms['job_name'] + "_mantra")
+                mantra_frames = [MantraFarm(action.node, action.rop, job_name = action.parms['job_name'] + "_mantra")]
                 # Build parent dependency:
                 # We need to modify Houdini's graph as we're adding own stuff (mantra as bellow):
                 # hscriptA --> mantraA --> previously_hscriptA_parent
-                mantra_farm.insert_input(action, hscripts)
-                # 
-                mantras.append(mantra_farm)
-                posts += post_render_actions(action.node, [mantra_farm])
+                mantra_frames[0].insert_input(action, hscripts + [root])
+
+        # Posts actions
+        posts = post_render_actions(action.node, mantra_frames)
+        root.add_inputs(posts)
+    
 
 
     # Debug previous renders (ignore all rops but debugers) mode:
     if node.parm('debug_previous_render'):
         if node.parm('debug_previous_render').eval():
-            render_recursively(posts, debug_dependency_graph, ignore_types=[MantraFarm, HbatchFarm])
+            render_recursively(root, debug_dependency_graph, ignore_types=[MantraFarm, HbatchFarm])
             return
  
+    
     # Again end of story:
-    actions   = hscripts + mantras + posts
-    render_recursively(actions, debug_dependency_graph)
-    # TEMPORARY DEBUG:
-    if debug_dependency_graph:
-        print
-        for node in hscripts:
-            children = ", ".join([job.rop.name() for job in node.get_direct_inputs()])
-            print "%s children are: %s" % (node.rop.name(), children)
+    print "Submitting nodes in top-to-buttom from dependency graph:"
+    render_recursively(root, debug_dependency_graph)
 
 
-
-
-
-        
-            
