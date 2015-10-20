@@ -76,6 +76,12 @@ class HaAction(object):
         self.add_input(child)
         return True
 
+    def insert_inputs(self, children, actions):
+        '''Multi-insert wrapper.
+        '''
+        for child in children:
+            self.insert_input(child, actions)
+
     def get_all_parents(self, actions):
         ''' Returns a list of actions without outputs.
         '''
@@ -110,14 +116,28 @@ class HaAction(object):
     def add_input(self, action): 
         '''Adds input to a node checking if its a array job.
         '''
+        # Shell we raise here?
+        if action == self:
+            raise TypeError("Can't make self an input.")
         if issubclass(action.__class__, HaFarm):
             if action.parms['start_frame'] != action.parms['end_frame']:
                 action.array_interdependencies = True
-
             if action not in self.inputs:
                 self.inputs.append(action)
                 return True
+        elif issubclass(action.__class__, NullAction):
+            if action not in self.inputs:
+                self.inputs.append(action)
+                return True
+        else:
+            raise TypeError("Child is not %s" % type(self))
         return
+
+    def add_inputs(self, actions):
+        '''Multi action addition.
+        '''
+        for action in actions:
+            self.add_input(action)
 
     def remove_input(self, action):
         '''Removes action from self inputs.
@@ -143,9 +163,6 @@ class HaAction(object):
 class NullAction(HaAction):
     def __init__(self):
         super(NullAction, self).__init__()
-    def add_input(self, action):
-        if action not in self.inputs:
-            self.inputs.append(action)
     def render(self):
         pass
 
