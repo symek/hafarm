@@ -60,6 +60,19 @@ class HaAction(object):
         '''
         return self.inputs
 
+    def get_renderable_inputs(self):
+        ''' Returns a list of direct inputs or a list
+        of inputs of inputs, if current input is NullAction
+        '''
+        inputs = []
+        for action in self.get_direct_inputs():
+            if issubclass(action.__class__, HaFarm) \
+            or isinstance(action, HaFarm):
+                inputs += [action]
+            else:
+                inputs += action.get_renderable_inputs()
+        return inputs
+
     def insert_input(self, child, actions):
         ''' Add self to edge between A and B.
         '''
@@ -163,6 +176,7 @@ class HaAction(object):
 class NullAction(HaAction):
     def __init__(self):
         super(NullAction, self).__init__()
+
     def render(self):
         pass
 
@@ -271,7 +285,7 @@ class HaFarm(HaAction):
             and self.parms['end_frame']  != self.parms['step_frame']:
                 self.array_interdependencies = True
 
-            for action in self.get_direct_inputs():
+            for action in self.get_renderable_inputs():
                 # Both needs to be true...
                 if action.array_interdependencies and self.array_interdependencies:
                     self.parms['hold_jid_ad'] += [action.parms['job_name']]
@@ -319,7 +333,7 @@ class HaFarm(HaAction):
             or any other backend.
         """
         _db = {}
-        _db['inputs']       = [item.parms['job_name'] for item in self.get_direct_inputs()]
+        _db['inputs']       = [item.parms['job_name'] for item in self.get_renderable_inputs()]
         _db['class_name']   = self.__class__.__name__
         _db['backend_name'] = self.manager.__class__.__name__
         _db['parms']        = self.parms
