@@ -425,6 +425,10 @@ def build_recursive_farm(hafarm_rop):
             #This is usually intermediate hscript ROP which alters 
             #parms above itself or any other not supported node:
             if rop.name() in rops.keys():
+                # This rop was already hafarm'ed,
+                # so we just connect its hafarm class 
+                # to our current node (parent)
+                parent.add_input(rops[rop.name()])
                 continue
             if not is_supported(rop) or rop.isBypassed():
                 print "Creating NullAction from %s" % rop.name()
@@ -432,6 +436,7 @@ def build_recursive_farm(hafarm_rop):
                 farm.parms = {'job_name': rop.name()}
                 farm.rop  = rop
                 farm.node = parent.node
+                farm.array_interdependencies  = False
                 if rop.type().name() == "HaFarm":
                     farm.node  = rop
             else:
@@ -455,6 +460,7 @@ def build_recursive_farm(hafarm_rop):
     root.parent = True
     root.node   = hafarm_rop
     root.rop    = hafarm_rop
+    root.array_interdependencies  = False
   
     add_edge(root, actions, rops)
 
@@ -465,13 +471,14 @@ def render_recursively(root, dry_run=False, ignore_types=[]):
     """Executes render() command of actions in graph order (children first).
     """
     def render_children(action, submitted, ignore_types):
-        for child in action.get_direct_inputs():
+        for child in action.get_renderable_inputs():
             render_children(child, submitted, ignore_types)
             if True in [isinstance(child, t) for t in ignore_types]:
                 continue
             if child not in submitted:
                 if dry_run:
-                    print "Dry submitting: %s with settings from %s" % (child.parms['job_name'], child.node.name())
+                    names = [x.parms['job_name'] for x in child.get_renderable_inputs()]
+                    print "Dry submitting: %s, settings: %s, children: \n\t%s" % (child.parms['job_name'], child.node.name(), ", ".join(names))
                 else:
                     child.render()
                 submitted += [child]
@@ -479,6 +486,25 @@ def render_recursively(root, dry_run=False, ignore_types=[]):
     submitted = []
     render_children(root, submitted, ignore_types)
     return submitted
+
+
+
+def build_debug_graph(root, subnet):
+
+    def build_recurently(root, nroot, subnet):
+        for child in root.get_direct_inputs():
+            output = build_recurently(child, nroot, subnet)
+            child.setNextInput(output)
+            node = subnet.createNode("null")
+            name = child.parms['job_name']
+            node.setName(name)
+            nroot.setNextInput(node)
+        return nroot
+
+    nroot = subnet.createNode("null")
+    nroot.setName("ROOT")
+    root.proxy = nroot
+    build_recurently(root, subnet)
 
 
 def render_pressed(node):
@@ -563,4 +589,7 @@ def render_pressed(node):
     print "Submitting nodes in top-to-buttom from dependency graph:"
     render_recursively(root, debug_dependency_graph)
 
+    # if debug_dependency_graph:
+    #     subnet = node.parent().createNode("subnet")
+    #     build_debug_graph(root, subnet)
 
