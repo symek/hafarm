@@ -38,11 +38,14 @@ echo Processors  : `nproc`
 NPROC=`nproc`
 echo Memory stats: `egrep 'Mem|Cache|Swap' /proc/meminfo`
 echo Scene file  : 
+
 echo haSGE_unittest  
+
 echo Render ends: `date`
 echo Render target: 
 echo Command was: echo haSGE_unittest [''] 
 """
+
 
 _create_submit_command_output = ['qsub', '-N', 'haSGE_unittest', '-V', '-r', 'yes', '-o',\
                                 '/PROD/dev/sandbox/user/symek/render/sungrid/log', \

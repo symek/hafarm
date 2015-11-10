@@ -164,7 +164,7 @@ class TestHaFarm(unittest.TestCase):
 
 class TestBatchFarm(unittest.TestCase):
     def test___init__(self):
-        batch_farm = BatchFarm("Test", parent_job_name=[], queue='3d')
+        batch_farm = BatchFarm("Test", queue='3d')
         self.assertEqual(batch_farm.parms['job_name'], "Test")
         self.assertEqual(batch_farm.parms['hold_jid'], [])
         self.assertEqual(batch_farm.parms['queue'], "3d")
@@ -175,7 +175,7 @@ class TestBatchFarm(unittest.TestCase):
     #     self.assertEqual(batch_farm.parms['command_arg'], [debug_images_output])
 
     def test_join_tiles(self):
-        batch_farm = BatchFarm("Test", parent_job_name=[], queue='3d')
+        batch_farm = BatchFarm("Test", queue='3d')
         sequence = '/tmp/test.0001.exr'
         result = batch_farm.join_tiles(sequence, 1, 3, 4)
         self.assertEqual([result], batch_farm.parms['command_arg'])
@@ -184,7 +184,7 @@ class TestBatchFarm(unittest.TestCase):
 
     def test_join_tiles_proxy(self):
         import os
-        batch_farm = BatchFarm("Test", parent_job_name=[], queue='3d')
+        batch_farm = BatchFarm("Test", queue='3d')
         batch_farm.parms['make_proxy'] = True
         sequence = '/tmp/test.0001.exr'
         result = batch_farm.join_tiles(sequence, 1, 3, 4)
