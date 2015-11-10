@@ -387,7 +387,7 @@ def post_render_actions(node, actions, queue='3d'):
                                      start = action.parms['start_frame'], 
                                      end   = action.parms['end_frame'])
             debug_render.node = action.node
-            debug_render.insert_input(action, actions)
+            debug_render.insert_input(action)
             post_renders.append(debug_render)
             # Merge reports:
             merger   = BatchFarm(job_name = action.parms['job_name'] + "_mergeReports", queue = queue)
@@ -406,7 +406,7 @@ def post_render_actions(node, actions, queue='3d'):
             movie  = Batch.BatchFarm(job_name = action.parms['job_name'] + "_mp4", queue = queue)
             movie.make_movie(action.parms['output_picture'])
             movie.node = action.node
-            movie.insert_input(action, actions)
+            movie.insert_input(action)
             post_renders.append(movie)
 
     return post_renders
@@ -489,22 +489,27 @@ def render_recursively(root, dry_run=False, ignore_types=[]):
 
 
 
-def build_debug_graph(root, subnet):
+def build_debug_graph(parent, subnet):
+    def build_recursive(parent, subnet, hnode):
+        for child in parent.get_direct_inputs():
+            if child.parms['job_name'] not in [node.name() for node in subnet.children()]:
+                ch = subnet.createNode('merge')
+                ch.setName(child.parms['job_name'])
+            else:
+                ch = subnet.node(child.parms['job_name'])
+            print ch.name() + " connected to " + hnode.name()
+            hnode.setNextInput(ch)
+            # hnode.moveToGoodPosition()
+            build_recursive(child, subnet, ch)
 
-    def build_recurently(root, nroot, subnet):
-        for child in root.get_direct_inputs():
-            output = build_recurently(child, nroot, subnet)
-            child.setNextInput(output)
-            node = subnet.createNode("null")
-            name = child.parms['job_name']
-            node.setName(name)
-            nroot.setNextInput(node)
-        return nroot
+    for child in subnet.children():
+        child.destroy()
 
-    nroot = subnet.createNode("null")
-    nroot.setName("ROOT")
-    root.proxy = nroot
-    build_recurently(root, subnet)
+    null = subnet.createNode('merge')
+    null.setName('root')
+    build_recursive(parent, subnet, null)
+    for node in subnet.children():
+        node.moveToGoodPosition()
 
 
 def render_pressed(node):
@@ -556,13 +561,14 @@ def render_pressed(node):
             frames         = action.node.parm("frame_list").eval()
             frames         = utils.parse_frame_list(frames)
             mantra_frames  = mantra_render_frame_list(action, frames)
-            action.insert_inputs(mantra_frames, [root] + hscripts)
+            #[frame.insert_input(action, [root] + hscripts) for frame in mantra_frames]
+            action.insert_outputs(mantra_frames)
         else:
             # TODO: Move tiling inside MantraFarm class...
             # Custom tiling:
             if action.rop.parm('vm_tile_render').eval():
                 mantra_frames = mantra_render_with_tiles(action.node, action.rop, action)
-                action.insert_inputs(mantra_frames, [root] + hscripts) 
+                action.insert_inputs(mantra_frames) 
                 
             else:
                 # Proceed normally (no tiling required):
@@ -570,7 +576,7 @@ def render_pressed(node):
                 # Build parent dependency:
                 # We need to modify Houdini's graph as we're adding own stuff (mantra as bellow):
                 # hscriptA --> mantraA --> previously_hscriptA_parent
-                mantra_frames[0].insert_input(action, hscripts + [root])
+                mantra_frames[0].insert_input(action)
 
         # Posts actions
         posts = post_render_actions(action.node, mantra_frames)
@@ -589,7 +595,7 @@ def render_pressed(node):
     print "Submitting nodes in top-to-buttom from dependency graph:"
     render_recursively(root, debug_dependency_graph)
 
-    # if debug_dependency_graph:
-    #     subnet = node.parent().createNode("subnet")
-    #     build_debug_graph(root, subnet)
+    if debug_dependency_graph:
+        subnet = node.parent().createNode("subnet")
+        build_debug_graph(root, subnet)
 

@@ -16,54 +16,105 @@ from parms import HaFarmParms
 import const
 import utils
 
+# This is hand crafted minimal and unoptimized graph engine
+# for building DAGs from actions (pipline tasks in case of hafarm).
+# It's a subject of change or replaced by something more robust 
+# and optimized.
+import inspect 
+
 class Graph(dict):
     pass
 
 class HaResource(object):
     pass
 
-
-
-#TODO: This isn't still  correct...
 class HaAction(object):
     #__metaclass__ = abc.ABCMeta
-    def __init__(self, graph=None):
-        '''Initialize  a list of direct input actions referenced by its unique names.
-        '''
+    def __init__(self, name=None):
+        """ Initialize  a list of direct input actions referenced by its unique names.
+        """
+        from uuid import uuid4
         self.inputs = []
+        self.uuid   = uuid4()
+        self.name   = name
 
-    def get_all_inputs(self):
-        '''Returns a list of all input actions (including indirect inputs).
-        '''
-        def get_inputs_recurently(action, actions):
-            for child in action.get_direct_inputs():
-                actions += [child]
-                actions += get_inputs_recurently(child, actions)
-            return actions
+        # RootAction will return new instance only 
+        # for first node in module
+        self.root   = RootAction()
+        self.root.add_node(self)
+       
+    def is_root(self):
+        return False
 
-        actions = []
-        actions = get_inputs_recurently(self, actions)
-        return actions
+    def __repr__(self):
+        if self.name:
+            name = self.name
+        else:
+            name = self.uuid
+        return "'%s'" % name
 
-    def is_related(self, action, graph):
-        '''Finds if provided action relates on current action.
-        '''
-        pass
+    def add_input(self, action): 
+        """Adds input to self.
+        """
+        # Shell we raise here?
+        if action == self:
+            raise TypeError("Can't make self an input.")
 
-    def get_my_recipe(self, graph):
-        '''Returns a list of nececery steps to fulfill current action requirements.
-        '''
-        pass
+        # TODO: Clean it up!
+        if issubclass(action.__class__, HaAction):
+            if action not in self.inputs:
+                self.inputs.append(action)
+                return True
+        else:
+            raise TypeError("Child %s is sublcass of %s" % (action, type(HaAction)))
+        return
 
-    def get_direct_inputs(self):
-        '''Returns a list of direct inputs to current action.
-        '''
-        return self.inputs
+    def add_inputs(self, actions):
+        """Multi action addition.
+        """
+        for action in actions:
+            self.add_input(action)
+        return True
+
+    def remove_input(self, action):
+        """Removes action from self inputs.
+        """
+        if action in self.inputs:
+            idx = self.inputs.index(action)
+            return self.inputs.pop(idx)
+        return
+
+    def get_direct_inputs(self, ignore_types=None):
+        """ Returns a list of direct inputs to current action.
+            ignore_types should be lists/tuples.
+        """
+        inputs = []
+        # Stright from self.inputs:
+        if not ignore_types:
+            return self.inputs
+        else:
+            # Type check for ignore_types list/tuple:
+            if not hasattr(ignore_types, '__iter__'):
+                if inspect.isclass(ignore_types):
+                    ignore_types = (ignore_types,)
+                else:
+                    raise TypeError("ignore_types must be either class of list of classes.")
+            # Return either filtered inputs or go recurently further to
+            # find child which passes filter test.
+            for action in self.inputs:
+                if True in [isinstance(action, type) for type in ignore_types]:
+                    inputs += action.get_direct_inputs(ignore_types=ignore_types)
+                else:
+                    inputs += [action]
+
+        return inputs
 
     def get_renderable_inputs(self):
-        ''' Returns a list of direct inputs or a list
-        of inputs of inputs, if current input is NullAction
-        '''
+        """ Returns a list of direct inputs or a list
+            of inputs of inputs, if current input is NullAction.
+            TODO: This depreciated in faviour of 
+            get_direct_inputs(ignore=(NullAction,)) (not implemented.)
+        """
         inputs = []
         for action in self.get_direct_inputs():
             if issubclass(action.__class__, HaFarm) \
@@ -73,48 +124,43 @@ class HaAction(object):
                 inputs += action.get_renderable_inputs()
         return inputs
 
-    def insert_input(self, child, actions):
-        ''' Add self to edge between A and B.
-        '''
-        # First find child's parents:
-        parents = child.get_direct_outputs(actions)
+    def get_all_inputs(self):
+        """ Returns a list of all input actions (including indirect inputs).
+        """
+        def get_inputs_recurently(action, actions):
+            for child in action.get_direct_inputs():
+                if child not in actions:
+                    actions += [child]
+                if child.get_direct_inputs():
+                    get_inputs_recurently(child, actions)
 
-        for parent in parents:
-            # Remove child from parents' inputs
-            # and add self instead of it:
-            parent.remove_input(child)
-            parent.add_input(self)
-            
-        # Finally add child to self:
-        self.add_input(child)
-        return True
+        actions = []
+        get_inputs_recurently(self, actions)
+        return actions
 
-    def insert_inputs(self, children, actions):
-        '''Multi-insert wrapper.
-        '''
-        for child in children:
-            self.insert_input(child, actions)
-
-    def get_all_parents(self, actions):
-        ''' Returns a list of actions without outputs.
-        '''
-         # FIXME: brute force
-        parents = []
+    def get_direct_outputs(self):
+        """Returns all actions with self as direct input.
+        """
+        # TODO: brute force:
+        result = []
+        actions = self.root.get_all_nodes()
         for action in actions:
-            if not action.get_direct_outputs(actions):
-                parents += [action]
-        return parents
-
-
-    def get_output_parent(self, actions):
-        '''Returns a single action without outputs and with the longest children list.
-        '''
-        # FIXME: brute force
+            if self in action.get_direct_inputs():
+                result += [action]
+        return result
+        
+    def get_root_output(self):
+        """ Returns a single action without outputs and with the longest children list.
+            Note: this is probably obsolute function, as we have direct access to root
+            anyway now, and this is what that function was meant for.
+        """
+        # TODO: brute force
         parents = []
         winner  = 0
         output  = None
+        actions = self.root.get_all_nodes()
         for action in actions:
-            if not action.get_direct_outputs(actions):
+            if not action.get_direct_outputs():
                 parents += [action]
 
         for parent in parents:
@@ -125,68 +171,138 @@ class HaAction(object):
 
         return output
 
-
-    def add_input(self, action): 
-        '''Adds input to a node checking if its a array job.
-        '''
-        # Shell we raise here?
-        if action == self:
-            raise TypeError("Can't make self an input.")
-        if issubclass(action.__class__, HaFarm):
-            if action.parms['start_frame'] != action.parms['end_frame']:
-                action.array_interdependencies = True
-            if action not in self.inputs:
-                self.inputs.append(action)
-                return True
-        elif issubclass(action.__class__, NullAction):
-            if action not in self.inputs:
-                self.inputs.append(action)
-                return True
-        else:
-            raise TypeError("Child is not %s" % type(self))
-        return
-
-    def add_inputs(self, actions):
-        '''Multi action addition.
-        '''
+    def get_all_parents(self):
+        """ Returns a list of actions without outputs.
+        """
+         # TODO: brute force
+        parents = []
+        actions = self.root.get_all_nodes()
         for action in actions:
-            self.add_input(action)
+            if not action.get_direct_outputs():
+                parents += [action]
+        return parents
 
-    def remove_input(self, action):
-        '''Removes action from self inputs.
+    def insert_input(self, action):
+        """ Insert action beteen self and all its children.
+        """
+        children = self.get_direct_inputs()
+        # FIXME: Not sure why calling remove_input()
+        # works only for first child, but we should not deal
+        # with self.inputs directly (subject of change).
+        self.inputs = []
+        for child in children:
+            action.add_input(child)
+        # and node to our inputs (making it our child)
+        self.add_input(action)
+        return True
+
+    def insert_inputs(self, children):
+        ''' Multi-insert != N x insert_input().
         '''
-        if action in self.inputs:
-            idx = self.inputs.index(action)
-            return self.inputs.pop(idx)
-        return
+        current_children = self.get_direct_inputs()
+        # FIXME: Again: remove_input() doesnt work
+        # but I should not play with self.inputs directly
+        self.inputs      = []
+        for child in current_children:
+            for new_child in children:
+                new_child.add_input(child)
+        for child in children:
+            self.add_input(child)
+        return True
 
+    def insert_output(self, action):
+        """ Insert action between self and all its outputs.
+        """
+        parents = self.get_direct_outputs()
+        action.add_input(self)
+        for parent in parents:
+            parent.remove_input(self)
+            parent.add_input(action)
+        return True
 
-    def get_direct_outputs(self, actions):
-        '''Get actions with self as inputs.
-        '''
-        # FIXME: brute force:
-        result = []
-        for action in actions:
-            if self in action.get_direct_inputs():
-                result += [action]
-        return result
-
+    def insert_outputs(self, children):
+        """ Multi-insert != N x insert_output().
+        """
+        parents = self.get_direct_outputs()
+        for parent in parents:
+            print parent.remove_input(self)
+        for child in children:
+            for parent in parents:
+                    parent.add_input(child)
+            child.add_input(self)
+        return True
 
 
 class NullAction(HaAction):
-    def __init__(self):
-        super(NullAction, self).__init__()
-
+    """ Actions which does nothing. Place holder to build graph
+        with unsuppored nodes.
+    """
+    def __init__(self, name=None):
+        super(NullAction, self).__init__(name)
+        self.job_name = name
     def render(self):
         pass
 
 
 
+class RootAction(HaAction):
+    """ Singelton class keeping all memebers of graph
+        and playing as root of tree. 
+    """
+    _instance = None
+    name = 'root'
+    nodes = list()
+    inputs = list()
+    # NOTE: This is singelton class
+    def __new__(cls, *args, **kwargs):
+        if not cls._instance:
+            cls._instance = super(RootAction, cls).__new__(
+                                cls, *args, **kwargs)
+        return cls._instance
+
+    def __init__(self):
+        # NOTE: We can't call super() here...
+        from uuid import uuid4
+        self.uuid = uuid4()
+        self.root = self
+        if self not in self.nodes:
+            self.nodes += [self]
+
+    def get_all_nodes(self):
+        """ Returns a list of all actions in graph.
+        """
+        # NOTE: return copy, so no one will screw
+        # our list?
+        return self.nodes
+
+    def add_node(self, node):
+        """ Add node to a graph. This shouldn't be call
+            in general, as nodes add themself to root.nodes
+            on creation.
+        """
+        if node not in self.nodes:
+            self.nodes.append(node)
+
+    def add_nodes(self, nodes):
+        """ Multi-addition. See above.
+        """
+        self.nodes += list(nodes)
+
+    def is_root(self): 
+        """ Are we a root?
+        """
+        return True
+
+    def render(self):
+        """ We do not render.
+        """
+        pass
+
+
+
+
 class HaFarm(HaAction):
     """Parent class to be inherited by host specific classes (Houdini, Maya, Nuke etc).
-    It's a child of renderfarm manager class (currently SGE, but maybe any thing else in
-    a future: OpenLava/whatever. Neither this class nor its children should notice if
-    underlying manager will change.
     """
     def __init__(self, job_name='', queue='', backend = 'Sungrid', backend_version = None):
         super(HaFarm, self).__init__()
