@@ -279,44 +279,40 @@ def mantra_render_frame_list(action, frames):
     return mantra_frames
 
 
-def mantra_render_with_tiles(node, rop, hscript_farm):
+def mantra_render_with_tiles(action):
     '''Creates a series of Mantra jobs using the same ifds stream with different crop setting 
     and overwritten filename. Secondly generates merge job with general BatchFarm class for 
     joining tiles.'''
     tile_job_ids = []
     mantra_tiles = []
-    tiles_x = rop.parm('vm_tile_count_x').eval()
-    tiles_y = rop.parm('vm_tile_count_y').eval()
+    tiles_x = action.rop.parm('vm_tile_count_x').eval()
+    tiles_y = action.rop.parm('vm_tile_count_y').eval()
 
-    parent_job_name = hscript_farm.parms['job_name']
+    parent_job_name = action.parms['job_name']
     for tile in range(tiles_x*tiles_y):
-        mantra_farm = MantraFarm(node, rop, job_name   = parent_job_name + str(tile), 
+        mantra_farm = MantraFarm(action.node, action.rop, job_name   = parent_job_name + str(tile), 
                                             crop_parms = (tiles_x,tiles_y,tile))
-        mantra_farm.add_input(hscript_farm)
         mantra_tiles.append(mantra_farm)
 
     # Tile merging job:
-    merging_job_name = hscript_farm.parms['job_name'] + '_merge'
-    merge_job = Batch.BatchFarm(job_name = merging_job_name, 
-                                  queue = str(node.parm('queue').eval()))
+    merging_job_name = action.parms['job_name'] + '_merge'
+    merger           = Batch.BatchFarm(job_name = merging_job_name, queue = str(action.node.parm('queue').eval()))
+    merger.node      = action.node # NOTE: Only for debugging purposes, we don't rely on this overwise
 
-    # Add dependency....
-    [merge_job.add_input(tile) for tile in mantra_tiles]
     # Need to copy it here, as proxies can be made after tiles merging of course...
-    merge_job.parms['make_proxy']  = bool(node.parm("make_proxy").eval())
+    merger.parms['make_proxy']  = bool(action.node.parm("make_proxy").eval())
 
     # Queue control
-    merge_job.parms['output_picture'] = mantra_farm.parms['output_picture'] # This is for house keeping only
+    merger.parms['output_picture'] = mantra_farm.parms['output_picture'] # This is for house keeping only
 
     # This prepares commandline to execute:
-    merge_job.join_tiles(mantra_farm.parms['output_picture'],
+    merger.join_tiles(mantra_farm.parms['output_picture'],
                           mantra_farm.parms['start_frame'],
                           mantra_farm.parms['end_frame'],
                           tiles_x*tiles_y)
 
     # Returns tiles job and merging job. 
-    mantra_tiles.append(merge_job)
-    return mantra_tiles
+    return mantra_tiles, merger
 
 
 def mantra_render_from_ifd(node, frames, job_name=None):
@@ -567,8 +563,9 @@ def render_pressed(node):
             # TODO: Move tiling inside MantraFarm class...
             # Custom tiling:
             if action.rop.parm('vm_tile_render').eval():
-                mantra_frames = mantra_render_with_tiles(action.node, action.rop, action)
-                action.insert_inputs(mantra_frames) 
+                mantra_frames, merger = mantra_render_with_tiles(action)
+                action.insert_outputs(mantra_frames)
+                [frame.insert_output(merger) for frame in mantra_frames] 
                 
             else:
                 # Proceed normally (no tiling required):
@@ -576,7 +573,7 @@ def render_pressed(node):
                 # Build parent dependency:
                 # We need to modify Houdini's graph as we're adding own stuff (mantra as bellow):
                 # hscriptA --> mantraA --> previously_hscriptA_parent
-                mantra_frames[0].insert_input(action)
+                action.insert_outputs(mantra_frames)
 
         # Posts actions
         posts = post_render_actions(action.node, mantra_frames)
