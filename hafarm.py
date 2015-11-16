@@ -288,6 +288,13 @@ class RootAction(HaAction):
         """
         self.nodes += list(nodes)
 
+    def clear(self):
+        """ Removes all nodes from root.
+        """
+        self.nodes = list()
+        self.inputs = list()
+        self.nodes += [self]
+
     def is_root(self): 
         """ Are we a root?
         """
