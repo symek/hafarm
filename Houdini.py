@@ -14,6 +14,7 @@ from hafarm import utils
 from hafarm import const
 from Batch import BatchFarm
 from hafarm import NullAction
+from hafarm import RootAction
 
 # Jobs multi-tasking are always diabled for these nodes:
 SINGLE_TASK_NODES = ('alembic', 'mdd', 'channel', 'dop', 'filmboxfbx')
@@ -407,27 +408,25 @@ def post_render_actions(node, actions, queue='3d'):
 
     return post_renders
 
-def build_recursive_farm(hafarm_rop):
+def build_graph(hafarm_rop, verbose=False):
     '''Builds simple dependency graph from Rops.
     '''
     def is_supported(node):
         return  node.type().name() in SINGLE_TASK_NODES + ('ifd', 'geometry', 'comp')
 
-    def add_edge(parent, actions, rops):
+    def add_recursively(parent, actions, rops):
         for rop in parent.rop.inputs():
-            # Houdini sometimes keep None inputs...
+            # Houdini sometimes keeps None inputs...
             if not rop:
                 continue
-            #This is usually intermediate hscript ROP which alters 
-            #parms above itself or any other not supported node:
+            # This rop was already hafarm'ed, so we just connect its hafarm class 
+            # to our current node (parent)
             if rop.name() in rops.keys():
-                # This rop was already hafarm'ed,
-                # so we just connect its hafarm class 
-                # to our current node (parent)
                 parent.add_input(rops[rop.name()])
                 continue
             if not is_supported(rop) or rop.isBypassed():
-                print "Creating NullAction from %s" % rop.name()
+                if verbose:
+                    print "Creating NullAction from %s" % rop.name()
                 farm      = NullAction()
                 farm.parms = {'job_name': rop.name()}
                 farm.rop  = rop
@@ -440,25 +439,24 @@ def build_recursive_farm(hafarm_rop):
 
             actions.append(farm)
             parent.add_input(farm)
-            print "Adding %s to %s inputs." % (farm.rop.name(), parent.rop.name())
-            #print "Inputs are: " + str(parent.get_direct_inputs())
+            if verbose:
+                print "Adding %s to %s inputs." % (farm.rop.name(), parent.rop.name())
             rops[rop.name()] = farm
             if rop.inputs():
-                add_edge(farm, actions, rops)
+                add_recursively(farm, actions, rops)
     
-    actions = []
     # This is book-keeper while creating graph:
+    actions = []
     rops    = {}
-
-    root = NullAction()
-    # FIXME: Move to class definition.
+    # This is the only root we will have...
+    root = RootAction()
+    # NOTE: This is only for debugging:
     root.parms = {'job_name': hafarm_rop.name()}
-    root.parent = True
     root.node   = hafarm_rop
     root.rop    = hafarm_rop
     root.array_interdependencies  = False
-  
-    add_edge(root, actions, rops)
+    # Go:
+    add_recursively(root, actions, rops)
 
     return root,  actions
  
@@ -495,7 +493,6 @@ def build_debug_graph(parent, subnet):
                 ch = subnet.node(child.parms['job_name'])
             print ch.name() + " connected to " + hnode.name()
             hnode.setNextInput(ch)
-            # hnode.moveToGoodPosition()
             build_recursive(child, subnet, ch)
 
     for child in subnet.children():
@@ -544,7 +541,7 @@ def render_pressed(node):
     # b) Iterate over inputs 
     print
     print "Building dependency graph:"
-    root, hscripts = build_recursive_farm(node)
+    root, hscripts = build_graph(node)
 
 
     for action in hscripts:
@@ -557,7 +554,6 @@ def render_pressed(node):
             frames         = action.node.parm("frame_list").eval()
             frames         = utils.parse_frame_list(frames)
             mantra_frames  = mantra_render_frame_list(action, frames)
-            #[frame.insert_input(action, [root] + hscripts) for frame in mantra_frames]
             action.insert_outputs(mantra_frames)
         else:
             # TODO: Move tiling inside MantraFarm class...
@@ -571,8 +567,6 @@ def render_pressed(node):
                 # Proceed normally (no tiling required):
                 mantra_frames = [MantraFarm(action.node, action.rop, job_name = action.parms['job_name'] + "_mantra")]
                 # Build parent dependency:
-                # We need to modify Houdini's graph as we're adding own stuff (mantra as bellow):
-                # hscriptA --> mantraA --> previously_hscriptA_parent
                 action.insert_outputs(mantra_frames)
 
         # Posts actions
@@ -595,4 +589,7 @@ def render_pressed(node):
     if debug_dependency_graph:
         subnet = node.parent().createNode("subnet")
         build_debug_graph(root, subnet)
+
+    # Side effect of singelton root. It's not destroyed after run, so we need to clean it here.
+    root.clear()
 
