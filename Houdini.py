@@ -110,16 +110,29 @@ class HbatchFarm(hafarm.HaFarm):
 
 
     def pre_schedule(self):
-        """ This method is called automatically before job submission by HaFarm.
-            Up to now:
-            1) All information should be aquired from host application.
-            2) They should be placed in HaFarmParms class (self.parms).
-            3) Scene should be ready to be copied to handoff location.
-            
-            Main purpose is to prepare anything specific that HaFarm might not know about, 
-            like renderer command and arguments used to render on farm.
+        """ Run just before render() is called usually by RootAction.
         """
+        # Let this node trigger parents render before finish its bucket
+        # on premise it won't break anything...
+        FORCE_TRIGGER_CMD = ["qalter", "-U", "@JOB_NAME/>", "-t", "@TASK_ID"]
+        if self.node.parm("force_trigger").eval():
+            # parents = 
+            command = ""
+            job_list = []
+            # FIXME: This only works if parent is renderable:
+            for parent in self.get_direct_outputs():
+                if parent.node.parm("use_one_slot"):
+                    continue
+                job_name = parent.parms['job_name']
+                # Set postframe script to run proper command:
+                subcommand = " ".join(FORCE_TRIGGER_CMD)
+                print subcommand
+                subcommand = command.replace(const.JOB_NAME, job_name)
+                subcommand = command.replace(const.TASK_ID, "$F")
+                subcommand = "'" + subcommand + "'" + ";"
+                command += subcommand
 
+            self.rop.parm("postframe").set(command)
 
         #TODO: copy_scene_file should be host specific.:
         result  = self.copy_scene_file()
@@ -137,10 +150,14 @@ class HbatchFarm(hafarm.HaFarm):
         # Save to parms again:
         self.parms['command_arg'] = command
 
+
         # Any debugging info [object, outout]:
         return []
 
 
+    def post_schedule(self):
+        """ Runs after render() call.
+        """
 
 
 

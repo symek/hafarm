@@ -15,6 +15,8 @@ MAX_CORES      = '@MAX_CORES/>'
 IINFO          = '$HFS/bin/iinfo'
 DEBUG          = 1
 TASK_ID_PADDED = '@TASK_ID_PADDED/>'
+JOB_NAME       = '@JOB_NAME/>'
+SCENE_FILE     = '@SCENE_FILE/>'
 RENDER_WRANGERS= ['renderfarm@human-ark.com']
 
 

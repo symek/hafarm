@@ -8,6 +8,8 @@ from hafarm.manager import RenderManager
 
 __plugin__version__ = 0.1
 
+__FORCE_TRIGGER_CMD = ["qalter", "-U", "@JOB_NAME/>", "-t", "@TASK_ID"]
+
 class Sungrid(RenderManager):
     def __init__(self):
         self.session = None
@@ -25,6 +27,12 @@ class Sungrid(RenderManager):
     @property
     def version(self):
         return __plugin__version__ 
+
+    @property
+    def FORCE_TRIGGER_CMD(self):
+        """Command allowing to forced trigger of job run (used by some child->parent customization.)
+        """
+        return __FORCE_TRIGGER_CMD
 
     def _create_job_script(self):
         """Creates a script sutable for SGE to run.
