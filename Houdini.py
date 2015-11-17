@@ -522,7 +522,7 @@ def render_pressed(node):
 
     # a) Ignore all inputs and render from provided ifds:
     if node.parm("render_from_ifd").eval():
-        root = NullAction()
+        root = RootAction()
         frames = []
         # support selective frames as well:
         if  node.parm("use_frame_list").eval():
@@ -536,6 +536,7 @@ def render_pressed(node):
         root.add_inputs(posts)
         # End of story:
         render_recursively(root, debug_dependency_graph)
+        root.clear()
         return 
         
     # b) Iterate over inputs 
