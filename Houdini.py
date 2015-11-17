@@ -274,9 +274,9 @@ def mantra_render_frame_list(action, frames):
         # Single task job:
         mantra_farm.parms['start_frame'] = frame
         mantra_farm.parms['end_frame']   = frame
-        #mantra_farm.add_input(action)
         mantra_frames.append(mantra_farm)
-
+    # frames are dependent on mantra:
+    action.insert_outputs(mantra_frames)
     return mantra_frames
 
 
@@ -312,6 +312,8 @@ def mantra_render_with_tiles(action):
                           mantra_farm.parms['end_frame'],
                           tiles_x*tiles_y)
 
+    action.insert_outputs(mantra_tiles)
+    [tile.insert_output(merger) for tile in mantra_tiles] 
     # Returns tiles job and merging job. 
     return mantra_tiles, merger
 
@@ -555,15 +557,11 @@ def render_pressed(node):
             frames         = action.node.parm("frame_list").eval()
             frames         = utils.parse_frame_list(frames)
             mantra_frames  = mantra_render_frame_list(action, frames)
-            action.insert_outputs(mantra_frames)
         else:
             # TODO: Move tiling inside MantraFarm class...
             # Custom tiling:
             if action.rop.parm('vm_tile_render').eval():
                 mantra_frames, merger = mantra_render_with_tiles(action)
-                action.insert_outputs(mantra_frames)
-                [frame.insert_output(merger) for frame in mantra_frames] 
-                
             else:
                 # Proceed normally (no tiling required):
                 mantra_frames = [MantraFarm(action.node, action.rop, job_name = action.parms['job_name'] + "_mantra")]
