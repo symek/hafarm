@@ -350,7 +350,7 @@ class TestBuildGraph(unittest.TestCase):
                 self.assertEqual(node.node, self.hafarm1)
             elif node.rop == self.alembic:
                 self.assertEqual(node.node, self.hafarm1)
-                self.assertTrue(node.parms['group'], self.hafarm1.parm('group').eval())
+                self.assertEqual(node.parms['group'], self.hafarm1.parm('group').eval())
 
 
 class TestRenderPressed(unittest.TestCase):
