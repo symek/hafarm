@@ -84,7 +84,7 @@ class TestHbatchFarm(unittest.TestCase):
         hbatch_farm = Houdini.HbatchFarm(self.farm, self.rop)
         hbatch_farm.pre_schedule()
         hbatch_farm.parms['command_arg']
-        self.assertEqual(['--ignore_tiles', '--generate_ifds', '', '-d /out/mantra2'], \
+        self.assertEqual(['--ignore_tiles', '--generate_ifds', '', '-d /out/mantra2', '@SCENE_FILE/>'], \
             hbatch_farm.parms['command_arg'])
         # assert False # TODO: implement your test here
 

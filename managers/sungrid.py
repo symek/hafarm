@@ -74,24 +74,21 @@ class Sungrid(RenderManager):
         # SGE specific tweak (we can rely on SGE env variable instead of specifying explicite frames)
         self.parms['command_arg'] += [self.parms['frame_range_arg'][0] % tuple(sge_frames_variables)]
         command_arg = " ".join(arg for arg in self.parms['command_arg'])
-
-
-
-        # Mailing support:
-        # FIXME: This doesn't work atm....
-        # if self.parms['email_stdout']:
-        #     if not self.parms['email_list']:
-        #         self.parms['email_list'] = [utils.get_email_address()]
-        #     stdout = 'STDOUT=$(cd `dirname "${BASH_SOURCE[0]}"` && pwd)/`basename "${BASH_SOURCE[0]}"`;\n'
-        #     topic = 'DEBUGING FOR: ' + self.parms['job_name']
-        #     send_mail = 'echo `cat $STDOUT` | mail -s "%s" "%s" \n' % (topic, self.parms['email_list'][0])
                 
         # FIXME: Change hafarm specific variables for SGE once. Currently we do it manually. 
         scene_file = self.parms['scene_file'].replace(const.TASK_ID, '$SGE_TASK_ID')
 
         # There are cases where TASK_ID should be padded. 
         # TODO: I don't know how to specify padding length thought atm
-        scene_file = scene_file.replace(const.TASK_ID_PADDED,  '$(python -c "print \'$SGE_TASK_ID\'.zfill(%s)")' % self.parms['frame_padding_length'])
+        scene_file  = scene_file.replace(const.TASK_ID_PADDED,  '$(python -c "print \'$SGE_TASK_ID\'.zfill(%s)")' \
+            % self.parms['frame_padding_length'])
+
+        # TODO: Look for general way of doing things like this...
+        # This should work in both cases where client class privided @SCENE_FILE/> in command_arg or
+        # expects scene_file to be appended as last argument (old behaviour)
+        if const.SCENE_FILE in command_arg:
+            command_arg = command_arg.replace(const.SCENE_FILE, scene_file)
+            scene_file  = ""
 
         with open(script_path, 'w') as file:
 
@@ -133,15 +130,6 @@ class Sungrid(RenderManager):
             file.write("echo Render ends: `date`\n")
             file.write("echo Render target: %s\n" % self.parms['output_picture'])
             file.write("echo Command was: %s %s %s\n" % (self.parms['command'], self.parms['command_arg'], scene_file))
-            #file.write("echo Current mem: `egrep 'Mem|Cache|Swap' /proc/meminfo`\n")
-            #file.write("echo CPU   stats: `mpstat`\n")
-            # file.write(stdout) FIXME: Mailig disabaled atm.
-            # file.write(send_mail)
-
-        # self.parms['script_path'] = script_path # FIXME: (look for other places hafarmparms are changed silently.)
-        # This was philosophically wrong. Some deep small obscure function shouldn't change our only
-        # data repository silently (I'm writing it down here to remeber next time.) 
-        # We should have eihter simple logic to construct job script or dedicated function() for it. 
 
 
         # As a convention we return a dict with function's proper value or None
