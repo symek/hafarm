@@ -59,7 +59,7 @@ class TestHaSGE(unittest.TestCase):
 
     def setUp(self):
         self.job_name = 'haSGE_unittest'
-        self.path = tempfile.gettempdir()
+        self.path = tempfile.mkdtemp()
         self.expected_path = os.path.join(self.path, self.job_name + '.job' )
         self.sge = Sungrid()
         # HaSge doesn't have default params!!!
