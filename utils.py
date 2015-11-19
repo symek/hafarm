@@ -51,7 +51,7 @@ def get_ray_image_from_ifd(filename):
     if sys.platform in ("linux2", ):
         result = os.popen("grep -a ray_image %s" % filename).read()
         image_name = result.split()[-1]
-        print image_name
+        image_name = image_name.replace('"', "")
     return image_name
 
 
