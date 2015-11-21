@@ -92,7 +92,8 @@ class LocalScheduler(Process, RenderManager):
         """
         self.parms = dict(parms)
         result = {}
-        self.run(self.parms)
+        self.schedule([self])
+        self.run()
         return result
 
     def get_queue_list(self):
