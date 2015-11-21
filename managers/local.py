@@ -26,14 +26,14 @@ class LocalProcess(Process):
     def run(self):
         """ Run command saved in parms.
         """
-        command = self.parms['command'] 
+        command = [self.parms['command']] + self.parms['command_arg']
         sp = Popen(command, shell=False, stdout=PIPE, stderr=PIPE)
-        self.stdout[self.pid] = []
-        while sp.poll() is None:
-            self.stdout[self.pid] += ["".join(sp.stdout.readline())]
-            self.status[self.pid]  = self.is_alive()
-        self.stderr[self.pid]      = sp.stderr.readlines()
-        self.status[self.pid]      = False
+        # self.stdout[self.pid] = []
+        # while sp.poll() is None:
+        #     self.stdout[self.pid] += ["".join(sp.stdout.readline())]
+        #     self.status[self.pid]  = self.is_alive()
+        # self.stderr[self.pid]      = sp.stderr.readlines()
+        # self.status[self.pid]      = False
 
     def get_receiver(self):
         return self.receiver
@@ -42,16 +42,17 @@ class LocalProcess(Process):
         return self.receiver.recv()
 
 
-class LocalScheduler(Process, RenderManager):
+class Server(Process):
+
     def __init__(self, tasks=None, maxsize=100):
-        super(LocalScheduler, self).__init__()
+        super(Server, self).__init__()
         self.queue   = PriorityQueue(maxsize)
         self.manager = Manager()
         self.tasks   = []
         self.status  = self.manager.dict()
         self.stdout  = self.manager.dict()
         self.stderr  = self.manager.dict()
-        self.deamon  = True
+        # self.deamon  = True
 
         if tasks:
             self.schedule(tasks)
@@ -62,16 +63,57 @@ class LocalScheduler(Process, RenderManager):
             # SGE priority spans -1024 <--> 1024
             p = 1 - ((task.parms['priority'] + 1024) / 2048.0)
             self.queue.put((p, task))
+        self.run()
 
     def run(self):
         """ Spawns remote actions.
         """
+        # while True:
         while not self.queue.empty():
             priority, task = self.queue.get()
             worker         = LocalProcess(task.parms, self.status, 
                                           self.stdout, self.stderr)
             worker.start()
             self.status[worker.pid] = True
+        time.sleep(1)
+            # break
+            # if not True in self.status.values():
+                # break
+        # worker.join()
+
+class LocalScheduler(RenderManager):
+    _instance = None
+    server    = None
+    def __new__(cls, *args, **kwargs):
+        if not cls._instance:
+            print "Creating instance of %s" % str(cls)
+            cls._instance = super(LocalScheduler, cls).__new__(
+                                cls, *args, **kwargs)
+        else:
+            print "Reusing instance of %s" % str(cls)
+        return cls._instance
+
+    def __init__(self, *args, **kwargs):
+        super(LocalScheduler, self).__init__(*args, **kwargs)
+        # Logger:
+        log = kwargs.get("log", False)
+        if log:
+            logger = multiprocessing.log_to_stderr()
+            logger.setLevel(logging.INFO)
+
+        if not self.server:
+            print "Creating server..."
+            self.server = Server()
+            if not self.server.pid:
+                self.server.start()
+                print "Starting Server: %s, pid: %s" % (str(self.server), str(self.server.pid))
+        else:
+            print "Server exists: %s, pid: %s" % (str(self.server), str(self.server.pid))
+            if not self.server.is_alive():
+                self.server = Server()
+                self.server.start()
+                print "Restarting server: %s, pid: %s" % (str(self.server), str(self.server.pid))
+
 
     @property
     def register_manager(self):
@@ -91,10 +133,8 @@ class LocalScheduler(Process, RenderManager):
         variable.
         """
         self.parms = dict(parms)
-        result = {}
-        self.schedule([self])
-        self.run()
-        return result
+        self.server.schedule([self])
+        return 
 
     def get_queue_list(self):
         """Get list of defined queues from manager. 
