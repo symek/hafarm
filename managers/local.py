@@ -28,12 +28,12 @@ class LocalProcess(Process):
         """
         command = [self.parms['command']] + self.parms['command_arg']
         sp = Popen(command, shell=False, stdout=PIPE, stderr=PIPE)
-        # self.stdout[self.pid] = []
-        # while sp.poll() is None:
-        #     self.stdout[self.pid] += ["".join(sp.stdout.readline())]
-        #     self.status[self.pid]  = self.is_alive()
-        # self.stderr[self.pid]      = sp.stderr.readlines()
-        # self.status[self.pid]      = False
+        self.stdout[self.pid] = []
+        while sp.poll() is None:
+            self.stdout[self.pid] += ["".join(sp.stdout.readline())]
+            self.status[self.pid]  = self.is_alive()
+        self.stderr[self.pid]      = sp.stderr.readlines()
+        self.status[self.pid]      = False
 
     def get_receiver(self):
         return self.receiver
@@ -52,10 +52,77 @@ class Server(Process):
         self.status  = self.manager.dict()
         self.stdout  = self.manager.dict()
         self.stderr  = self.manager.dict()
-        # self.deamon  = True
+        self.deamon  = True
 
         if tasks:
             self.schedule(tasks)
+
+    def schedule(self, tasks):
+        self.tasks  = tasks
+        for task in tasks:
+            # SGE priority spans -1024 <--> 1024
+            p = 1 - ((task.parms['priority'] + 1024) / 2048.0)
+            self.queue.put((p, task))
+        self.run()
+
+    def run(self):
+        """ Spawns remote actions.
+        """
+        return
+        while True:
+            while not self.queue.empty():
+                priority, task = self.queue.get()
+                worker         = LocalProcess(task.parms, self.status, 
+                                              self.stdout, self.stderr)
+                worker.start()
+                self.status[worker.pid] = True
+            time.sleep(1)
+            # break
+            # if not True in self.status.values():
+                # break
+        # worker.join()
+
+class LocalScheduler(RenderManager):
+    _instance = None
+    server    = None
+    queue   = PriorityQueue(10)
+    manager = Manager()
+    tasks   = []
+    status  = manager.dict()
+    stdout  = manager.dict()
+    stderr  = manager.dict()
+    def __new__(cls, *args, **kwargs):
+        if not cls._instance:
+            print "Creating instance of %s" % str(cls)
+            cls._instance = super(LocalScheduler, cls).__new__(
+                                cls, *args, **kwargs)
+        else:
+            print "Reusing instance of %s" % str(cls)
+        return cls._instance
+
+    def __init__(self, *args, **kwargs):
+        super(LocalScheduler, self).__init__(*args, **kwargs)
+        # Logger:
+        log = kwargs.get("log", False)
+        if log:
+            logger = multiprocessing.log_to_stderr()
+            logger.setLevel(logging.INFO)
+
+        # if not self.server:
+        #     print "Creating server..."
+        #     self.server = Server()
+        #     if not self.server.pid:
+        #         self.server.start()
+        #         print "Starting Server: %s, pid: %s" % (str(self.server), str(self.server.pid))
+        # else:
+        #     print "Server exists: %s, pid: %s" % (str(self.server), str(self.server.pid))
+        #     if not self.server.is_alive():
+        #         self.server = Server()
+        #         self.server.start()
+        #         print "Restarting server: %s, pid: %s" % (str(self.server), str(self.server.pid))
+
+        
+        # print "Initilized LocalScheduler"
 
     def schedule(self, tasks):
         self.tasks  = tasks
@@ -75,45 +142,16 @@ class Server(Process):
                                           self.stdout, self.stderr)
             worker.start()
             self.status[worker.pid] = True
-        time.sleep(1)
-            # break
-            # if not True in self.status.values():
-                # break
-        # worker.join()
+        # time.sleep(1)
 
-class LocalScheduler(RenderManager):
-    _instance = None
-    server    = None
-    def __new__(cls, *args, **kwargs):
-        if not cls._instance:
-            print "Creating instance of %s" % str(cls)
-            cls._instance = super(LocalScheduler, cls).__new__(
-                                cls, *args, **kwargs)
-        else:
-            print "Reusing instance of %s" % str(cls)
-        return cls._instance
-
-    def __init__(self, *args, **kwargs):
-        super(LocalScheduler, self).__init__(*args, **kwargs)
-        # Logger:
-        log = kwargs.get("log", False)
-        if log:
-            logger = multiprocessing.log_to_stderr()
-            logger.setLevel(logging.INFO)
-
-        if not self.server:
-            print "Creating server..."
-            self.server = Server()
-            if not self.server.pid:
-                self.server.start()
-                print "Starting Server: %s, pid: %s" % (str(self.server), str(self.server.pid))
-        else:
-            print "Server exists: %s, pid: %s" % (str(self.server), str(self.server.pid))
-            if not self.server.is_alive():
-                self.server = Server()
-                self.server.start()
-                print "Restarting server: %s, pid: %s" % (str(self.server), str(self.server.pid))
-
+    def join(self, maxtime=10):
+        ctime = time.time()
+        while True in self.status.values():
+            if time.time() - ctime > maxtime:
+                break
+            ps = [str(id) for id in self.status.keys() if self.status[id] == True]
+            print "Processes runnig: %s " % ", ".join(ps)
+            time.sleep(1)
 
     @property
     def register_manager(self):
@@ -133,7 +171,7 @@ class LocalScheduler(RenderManager):
         variable.
         """
         self.parms = dict(parms)
-        self.server.schedule([self])
+        self.schedule([self])
         return 
 
     def get_queue_list(self):
