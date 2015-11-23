@@ -13,27 +13,31 @@ from hafarm.manager import RenderManager
 __plugin__version__ = 0.1
 
 class LocalProcess(Process):
-    def __init__(self, parms, status, stdout, stderr):
+    def __init__(self, parms, status, feedback=False):
         super(LocalProcess, self).__init__()
         self.parms  = parms
         self.status = status
-        self.stdout = stdout
-        self.stderr = stderr
+        # self.stdout = stdout
+        # self.stderr = stderr
         self.receiver, self.pipe  = Pipe()
         self.deamon = True
         self.name   = parms['job_name']
+        self.feedback = feedback
 
     def run(self):
         """ Run command saved in parms.
         """
         command = [self.parms['command']] + self.parms['command_arg']
         sp = Popen(command, shell=False, stdout=PIPE, stderr=PIPE)
-        self.stdout[self.pid] = []
-        while sp.poll() is None:
-            self.stdout[self.pid] += ["".join(sp.stdout.readline())]
-            self.status[self.pid]  = self.is_alive()
-        self.stderr[self.pid]      = sp.stderr.readlines()
-        self.status[self.pid]      = False
+        # if self.feedback:
+        #     # self.stdout[self.pid] = []
+        #     while sp.poll() is None:
+        #         # self.stdout[self.pid] += ["".join(sp.stdout.readline())]
+        #         try: self.status[self.pid]  = self.is_alive()
+        #         except: pass
+        #     # self.stderr[self.pid]      = sp.stderr.readlines()
+        #     try: self.status[self.pid]      = False
+        #     except: pass
 
     def get_receiver(self):
         return self.receiver
@@ -43,43 +47,43 @@ class LocalProcess(Process):
 
 
 class Server(Process):
+    # self.queue   = PriorityQueue(maxsize)
+    manager = Manager()
+    tasks   = []
+    status  = manager.dict()
+    stdout  = manager.dict()
+    stderr  = manager.dict()
 
     def __init__(self, tasks=None, maxsize=100):
         super(Server, self).__init__()
-        self.queue   = PriorityQueue(maxsize)
-        self.manager = Manager()
-        self.tasks   = []
-        self.status  = self.manager.dict()
-        self.stdout  = self.manager.dict()
-        self.stderr  = self.manager.dict()
         self.deamon  = True
+        pass
+        # if tasks:
+        #     self.schedule(tasks)
 
-        if tasks:
-            self.schedule(tasks)
-
-    def schedule(self, tasks):
-        self.tasks  = tasks
-        for task in tasks:
-            # SGE priority spans -1024 <--> 1024
-            p = 1 - ((task.parms['priority'] + 1024) / 2048.0)
-            self.queue.put((p, task))
-        self.run()
+    # def schedule(self, tasks):
+    #     self.tasks  = tasks
+    #     for task in tasks:
+    #         # SGE priority spans -1024 <--> 1024
+    #         p = 1 - ((task.parms['priority'] + 1024) / 2048.0)
+    #         self.queue.put((p, task))
+    #     self.run()
 
     def run(self):
         """ Spawns remote actions.
         """
-        return
+        # return
         while True:
-            while not self.queue.empty():
-                priority, task = self.queue.get()
-                worker         = LocalProcess(task.parms, self.status, 
-                                              self.stdout, self.stderr)
-                worker.start()
-                self.status[worker.pid] = True
+            # while not self.queue.empty():
+            #     priority, task = self.queue.get()
+            #     worker         = LocalProcess(task.parms, self.status, 
+            #                                   self.stdout, self.stderr)
+            #     worker.start()
+            #     self.status[worker.pid] = True
             time.sleep(1)
             # break
             # if not True in self.status.values():
-                # break
+            #     break
         # worker.join()
 
 class LocalScheduler(RenderManager):
@@ -102,11 +106,21 @@ class LocalScheduler(RenderManager):
 
     def __init__(self, *args, **kwargs):
         super(LocalScheduler, self).__init__(*args, **kwargs)
+        self.feedback = kwargs.get('feedback', False)
         # Logger:
         log = kwargs.get("log", False)
+
         if log:
             logger = multiprocessing.log_to_stderr()
             logger.setLevel(logging.INFO)
+
+        if not self.server:
+            arg =  'while :; do echo hello >> /tmp/hello.txt; sleep 1; done'.split()
+            parms = {'command_arg': ["TEST",],
+                     'command': "./server.sh",
+                     'job_name': 'serversss'}
+            self.server = LocalProcess(parms, self.status, False)
+            self.server.start()
 
         # if not self.server:
         #     print "Creating server..."
@@ -136,10 +150,17 @@ class LocalScheduler(RenderManager):
         """ Spawns remote actions.
         """
         # while True:
+        # if not self.server:
+        #     self.server = Server()
+        #     self.server.start()
+        # else:
+        #     if not self.server.is_alive():
+        #         self.server = Server()
+        #         self.server.start()
+
         while not self.queue.empty():
             priority, task = self.queue.get()
-            worker         = LocalProcess(task.parms, self.status, 
-                                          self.stdout, self.stderr)
+            worker         = LocalProcess(task.parms, self.status, self.feedback)
             worker.start()
             self.status[worker.pid] = True
         # time.sleep(1)
