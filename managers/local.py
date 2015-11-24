@@ -1,10 +1,16 @@
+# Concurent: 
 import multiprocessing, logging
-from multiprocessing import Process, Pipe, Manager, Queue
+from multiprocessing import Process, Pipe, Manager
+from multiprocessing.connection import Listener, Client
+from xmlrpclib import ServerProxy
+from SimpleXMLRPCServer import SimpleXMLRPCServer
 from subprocess import Popen, PIPE
 from Queue import PriorityQueue
-
+# Std
+import threading
+import traceback
 import sys, time, os
-
+# Own
 import hafarm
 from hafarm import utils
 from hafarm import const
@@ -12,14 +18,17 @@ from hafarm.manager import RenderManager
 
 __plugin__version__ = 0.1
 
+HOST = 'localhost'
+XMLRPC_SOCKET  = 15000
+CONNECT_SOCKET = 25000
+AUTHKEY        = b'HAFARM'
+
+
 class LocalProcess(Process):
     def __init__(self, parms, status, feedback=False):
         super(LocalProcess, self).__init__()
         self.parms  = parms
         self.status = status
-        # self.stdout = stdout
-        # self.stderr = stderr
-        self.receiver, self.pipe  = Pipe()
         self.deamon = True
         self.name   = parms['job_name']
         self.feedback = feedback
@@ -27,79 +36,122 @@ class LocalProcess(Process):
     def run(self):
         """ Run command saved in parms.
         """
-        command = [self.parms['command']] + self.parms['command_arg']
+        command = [self.parms['command']] + list(self.parms['command_arg'])
         sp = Popen(command, shell=False, stdout=PIPE, stderr=PIPE)
-        # if self.feedback:
-        #     # self.stdout[self.pid] = []
-        #     while sp.poll() is None:
-        #         # self.stdout[self.pid] += ["".join(sp.stdout.readline())]
-        #         try: self.status[self.pid]  = self.is_alive()
-        #         except: pass
-        #     # self.stderr[self.pid]      = sp.stderr.readlines()
-        #     try: self.status[self.pid]      = False
-        #     except: pass
+        # Child job is running...
+        while sp.poll() is None:
+            try: 
+                self.status['pid']      = self.pid
+                self.status['is_alive'] = self.is_alive()
+            except: 
+                pass
+        # We finished job:
+        try: 
+            self.status['is_alive']      = False
+            self.status['exitcode']      = sp.returncode
+        except: 
+            pass
 
-    def get_receiver(self):
-        return self.receiver
+class LocalServer(object):
+    """ LocalSever is spawned first time HaFarm is executed,
+        and keeps track of localed jobs. It brings basic functionality
+        of cluster schedulers / renderfarm managers. 
+        There are two ways of communicating with LocalSever process:
+            - via xmlrpc server 
+            - via pipe connection multiprocessing.connection
+            The latter one allows trasfering pickable objects,
+            the former one executes LocalServer's commands. () 
+    """
+    _queue   = PriorityQueue(100)
+    _manager = Manager()
+    _tasks   = []
+    _status  = _manager.dict()
+    _stdout  = _manager.dict()
+    _stderr  = _manager.dict()
+    # 
+    _rpc_methods_ = ['job_submit', 'job_get_status', 'get_queue_size', \
+    'job_terminate', 'job_exists',]
 
-    def pull(self):
-        return self.receiver.recv()
-
-
-class Server(Process):
-    # self.queue   = PriorityQueue(maxsize)
-    manager = Manager()
-    tasks   = []
-    status  = manager.dict()
-    stdout  = manager.dict()
-    stderr  = manager.dict()
-
-    def __init__(self, tasks=None, maxsize=100):
-        super(Server, self).__init__()
-        self.deamon  = True
-        pass
-        # if tasks:
-        #     self.schedule(tasks)
-
-    # def schedule(self, tasks):
-    #     self.tasks  = tasks
-    #     for task in tasks:
-    #         # SGE priority spans -1024 <--> 1024
-    #         p = 1 - ((task.parms['priority'] + 1024) / 2048.0)
-    #         self.queue.put((p, task))
-    #     self.run()
-
-    def run(self):
-        """ Spawns remote actions.
+    def __init__(self, address=('', XMLRPC_SOCKET)):
+        """ Register xmlrpc functions for xmlrpc server.
+            Initalize XMLRPC server wihtin its onw thread.
+            Start listening on conneciton pipe for a new jobs.
         """
-        # return
+        # multiprocessing.conneciton pipe:
+        self._pipe    = Listener(('', CONNECT_SOCKET), authkey=AUTHKEY)
+        # Server to execute remote commands (see _rpc_methods):
+        self._serv = SimpleXMLRPCServer(address, allow_none=True)
+        for name in self._rpc_methods_:
+            self._serv.register_function(getattr(self, name))
+        # Start xmlrpc server in own thread:
+        rpc_thread = threading.Thread(target=self._serv.serve_forever)
+        rpc_thread.start()
+        # Start main loop:
+        self.queue_loop()
+
+    def queue_loop(self, interval=1):
+        """ This is main loop of the scheduler.
+            We do as follows:
+                - we listen for new jobs via pipe.
+                - we place them in private list checking if
+                  job is sutable to run (dependencies)
+                - job which pass the test, are placed in PriorityQueue we have.
+                - we get job from a queue and start new execution process.
+        """
         while True:
-            # while not self.queue.empty():
-            #     priority, task = self.queue.get()
-            #     worker         = LocalProcess(task.parms, self.status, 
-            #                                   self.stdout, self.stderr)
-            #     worker.start()
-            #     self.status[worker.pid] = True
-            time.sleep(1)
-            # break
-            # if not True in self.status.values():
-            #     break
-        # worker.join()
+            # Submit job to remote processes:
+            while not self._queue.empty():
+                priority, job_scheduled = self._queue.get()
+                print "Job prepared for running: " + job_scheduled['job_name']
+                status = self._manager.dict()
+                self._status[job_scheduled['job_name']] = status
+                job_process   = LocalProcess(job_scheduled, status)
+                job_process.start()
+                print "Job started: " + job_scheduled['job_name']
+                time.sleep(interval)
+            time.sleep(interval)
+            print self._status
+
+
+
+    def job_submit(self, job_file):
+        """ Remote method used for job submission.
+        """
+        if os.path.isfile(job_file):
+            job_candidate = hafarm.HaFarm()
+            job_candidate.load_parms_from_file(job_file)
+            # TODO: Type checking on job_candidate 
+            # NOTE: currently HAFARM priority spawns -1024 <--> 1024 (SGE style), 
+            priority = 1 - ((job_candidate.parms['priority'] + 1024) / 2048.0)
+            self._queue.put((priority, job_candidate.parms))
+            return True
+        return
+
+    def get_queue_size(self):
+        """ Remote method returning all
+            jobs currently queued.
+        """
+        return self._queue.qsize()
+
+    def get_jobs(self): pass
+    def job_get_status(self, job_id): pass
+    def job_terminate(self, job_id): pass
+    def job_exists(self, job_id): pass
+
 
 class LocalScheduler(RenderManager):
     _instance = None
-    server    = None
-    queue   = PriorityQueue(10)
-    manager = Manager()
-    tasks   = []
-    status  = manager.dict()
-    stdout  = manager.dict()
-    stderr  = manager.dict()
+    
+    _logger   = None
     def __new__(cls, *args, **kwargs):
         if not cls._instance:
             print "Creating instance of %s" % str(cls)
             cls._instance = super(LocalScheduler, cls).__new__(
                                 cls, *args, **kwargs)
+            cls._proxy    = ServerProxy('http://%s:%s' \
+                % (HOST, XMLRPC_SOCKET), allow_none=True)
+            # cls._client   = Client((HOST, CONNECT_SOCKET),\
+             # authkey=AUTHKEY)
         else:
             print "Reusing instance of %s" % str(cls)
         return cls._instance
@@ -108,71 +160,23 @@ class LocalScheduler(RenderManager):
         super(LocalScheduler, self).__init__(*args, **kwargs)
         self.feedback = kwargs.get('feedback', False)
         # Logger:
-        log = kwargs.get("log", False)
+        if kwargs.get("log", True) and not self._logger:
+            self._logger = multiprocessing.log_to_stderr()
+            self._logger.setLevel(logging.INFO)
 
-        if log:
-            logger = multiprocessing.log_to_stderr()
-            logger.setLevel(logging.INFO)
-
-        if not self.server:
-            arg =  'while :; do echo hello >> /tmp/hello.txt; sleep 1; done'.split()
-            parms = {'command_arg': ["TEST",],
-                     'command': "./server.sh",
-                     'job_name': 'serversss'}
-            self.server = LocalProcess(parms, self.status, False)
-            self.server.start()
-
-        # if not self.server:
-        #     print "Creating server..."
-        #     self.server = Server()
-        #     if not self.server.pid:
-        #         self.server.start()
-        #         print "Starting Server: %s, pid: %s" % (str(self.server), str(self.server.pid))
-        # else:
-        #     print "Server exists: %s, pid: %s" % (str(self.server), str(self.server.pid))
-        #     if not self.server.is_alive():
-        #         self.server = Server()
-        #         self.server.start()
-        #         print "Restarting server: %s, pid: %s" % (str(self.server), str(self.server.pid))
-
-        
-        # print "Initilized LocalScheduler"
-
-    def schedule(self, tasks):
-        self.tasks  = tasks
-        for task in tasks:
-            # SGE priority spans -1024 <--> 1024
-            p = 1 - ((task.parms['priority'] + 1024) / 2048.0)
-            self.queue.put((p, task))
-        self.run()
-
-    def run(self):
-        """ Spawns remote actions.
+    def job_submit(self, parms):
+        """ Submits job via pipe to server.
         """
-        # while True:
-        # if not self.server:
-        #     self.server = Server()
-        #     self.server.start()
-        # else:
-        #     if not self.server.is_alive():
-        #         self.server = Server()
-        #         self.server.start()
+        # result = self._client.send(parms)
 
-        while not self.queue.empty():
-            priority, task = self.queue.get()
-            worker         = LocalProcess(task.parms, self.status, self.feedback)
-            worker.start()
-            self.status[worker.pid] = True
-        # time.sleep(1)
+        print "LocalScheduler sending job" + str(result)
+        return result
 
-    def join(self, maxtime=10):
-        ctime = time.time()
-        while True in self.status.values():
-            if time.time() - ctime > maxtime:
-                break
-            ps = [str(id) for id in self.status.keys() if self.status[id] == True]
-            print "Processes runnig: %s " % ", ".join(ps)
-            time.sleep(1)
+    def get_queue_size(self):
+        """ Returns a number of currently queued jobs.
+        """
+        return self._proxy.get_queue_size()
+
 
     @property
     def register_manager(self):
@@ -192,8 +196,9 @@ class LocalScheduler(RenderManager):
         variable.
         """
         self.parms = dict(parms)
-        self.schedule([self])
-        return 
+        job_file  = os.path.join(self.parms['script_path'], self.parms['job_name'] + ".json")
+        return self._proxy.job_submit(job_file)
+         
 
     def get_queue_list(self):
         """Get list of defined queues from manager. 
