@@ -87,9 +87,10 @@ class LocalQueue(object):
 
     def pop_next(self, job_name=None):
         """ Returns next job with hightest priority
-            if get()
+            if best match doesn't quilify...
         """
-        pass
+        if self._queue.keys():
+            pass
 
     def sort_queue(self, key='priority'):
         """ Sorts queue based on items' key,
@@ -149,15 +150,20 @@ class LocalServer(object):
     _status  = _manager.dict()
     _stdout  = _manager.dict()
     _stderr  = _manager.dict()
+    _logger  = None
     # 
     _rpc_methods_ = ['job_submit', 'job_get_status', 'get_queue_size', \
     'job_terminate', 'job_exists',]
 
-    def __init__(self, address=('', XMLRPC_SOCKET)):
+    def __init__(self, address=('', XMLRPC_SOCKET), **kwargs):
         """ Register xmlrpc functions for xmlrpc server.
             Initalize XMLRPC server wihtin its onw thread.
             Start listening on conneciton pipe for a new jobs.
         """
+        # Logger:
+        if kwargs.get("log", True) and not self._logger:
+            self._logger = multiprocessing.log_to_stderr()
+            self._logger.setLevel(logging.INFO)
         # multiprocessing.conneciton pipe:
         self._pipe    = Listener(('', CONNECT_SOCKET), authkey=AUTHKEY)
         # Server to execute remote commands (see _rpc_methods):
@@ -179,15 +185,15 @@ class LocalServer(object):
                 - job which pass the test, are placed in PriorityQueue we have.
                 - we get job from a queue and start new execution process.
         """
-        def dependant(job_id, dependencies):
-            inqueue    = [job in self._queue.keys() if job != job_id]
-            inprogress = [job for job in self._status.keys() if job['is_alive'] or job['exitcode']]
-            return job_id in inqueue or job_id in inprogress
+        # def dependant(job_id, dependencies):
+        #     inqueue    = [job in self._queue.keys() if job != job_id]
+        #     inprogress = [job for job in self._status.keys() if job['is_alive'] or job['exitcode']]
+        #     return job_id in inqueue or job_id in inprogress
 
         while True:
             # Submit job to remote processes:
             while not self._queue.empty():
-                job_scheduled = self._queue.get()
+                job_scheduled = self._queue.pop()
                 dependencies = job_scheduled['hold_jid']
                 # TODO: !!!!
                 print "Job prepared for running: " + job_scheduled['job_name']
@@ -198,7 +204,7 @@ class LocalServer(object):
                 print "Job started: " + job_scheduled['job_name']
                 time.sleep(interval)
             time.sleep(interval)
-            print self._status
+            # print self._status
 
 
     def job_submit(self, job_file):
