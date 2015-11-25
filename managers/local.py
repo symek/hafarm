@@ -85,6 +85,12 @@ class LocalQueue(object):
             return item
         return
 
+    def pop_next(self, job_name=None):
+        """ Returns next job with hightest priority
+            if get()
+        """
+        pass
+
     def sort_queue(self, key='priority'):
         """ Sorts queue based on items' key,
             assuming item are dictonaries. 
@@ -173,10 +179,17 @@ class LocalServer(object):
                 - job which pass the test, are placed in PriorityQueue we have.
                 - we get job from a queue and start new execution process.
         """
+        def dependant(job_id, dependencies):
+            inqueue    = [job in self._queue.keys() if job != job_id]
+            inprogress = [job for job in self._status.keys() if job['is_alive'] or job['exitcode']]
+            return job_id in inqueue or job_id in inprogress
+
         while True:
             # Submit job to remote processes:
             while not self._queue.empty():
-                job_scheduled = self._queue.pop()
+                job_scheduled = self._queue.get()
+                dependencies = job_scheduled['hold_jid']
+                # TODO: !!!!
                 print "Job prepared for running: " + job_scheduled['job_name']
                 status = self._manager.dict()
                 self._status[job_scheduled['job_name']] = status
@@ -186,7 +199,6 @@ class LocalServer(object):
                 time.sleep(interval)
             time.sleep(interval)
             print self._status
-
 
 
     def job_submit(self, job_file):
