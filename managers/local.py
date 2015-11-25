@@ -6,14 +6,18 @@ from xmlrpclib import ServerProxy
 from SimpleXMLRPCServer import SimpleXMLRPCServer
 from subprocess import Popen, PIPE
 from Queue import PriorityQueue
-# Std
+from collections import OrderedDict
 import threading
+from threading import Lock
+
+# Std
 import traceback
 import sys, time, os
 # Own
 import hafarm
 from hafarm import utils
 from hafarm import const
+from hafarm.parms import HaFarmParms
 from hafarm.manager import RenderManager 
 
 __plugin__version__ = 0.1
@@ -22,7 +26,77 @@ HOST = 'localhost'
 XMLRPC_SOCKET  = 15000
 CONNECT_SOCKET = 25000
 AUTHKEY        = b'HAFARM'
+QUEUE_MAXITEMS = 100
 
+
+class LocalQueue(object):
+    """ Custom Queue object. Not thread-safe atm (!).
+    """
+    _queue = OrderedDict()
+    _lock  = Lock()
+    def __init__(self, maxitems):
+        self.maxitems = maxitems
+        pass
+
+    def put(self, job, sort=True):
+        """ Puts new item into a queue and sort it by
+            item['priority'] value.
+        """
+        if not isinstance(job, type({})) \
+        or not isinstance(job, HaFarmParms)\
+        or len(self._queue) >= self.maxitems:
+            return 
+        # TODO: Type checking on job_candidate 
+        # NOTE: currently HAFARM priority spawns -1024 <--> 1024 (SGE style), 
+        priority = 1 - ((job['priority'] + 1024) / 2048.0)
+        self._lock.acquire()
+        self._queue[job['job_name']] = job
+        if sort:
+            self.sort_queue()
+        self._lock.release()
+        return True
+
+    def puts(self, jobs):
+        """ Multi-insert.
+        """
+        for job in jobs:
+            self.put(job, False)
+        self.reorder_queue()
+        return True
+
+    def get(self):
+        """ Get job with hightest priority possibly passing 
+            some tests. Warning: job won't be removed from queue. 
+            Use pop() instead.
+        """
+        # self._lock.acquire()
+        if self._queue.keys():
+            return self._queue.values()[-1]
+
+    def pop(self):
+        """ Returns job with hightest priority removing it from
+            the queue at once. 
+        """
+        if self._queue.keys():
+            self._lock.acquire()
+            key = self._queue.keys()[-1]
+            item = self._queue.pop(key)
+            self._lock.release()
+            return item
+        return
+
+    def sort_queue(self, key='priority'):
+        """ Sorts queue based on items' key,
+            assuming item are dictonaries. 
+        """
+        self._queue = OrderedDict(sorted(self._queue.items(), \
+            key=lambda k: k[1][key]))
+
+    def empty(self):
+        return len(self._queue) == 0
+
+    def qsize(self):
+        return len(self._queue)
 
 class LocalProcess(Process):
     def __init__(self, parms, status, feedback=False):
@@ -62,7 +136,8 @@ class LocalServer(object):
             The latter one allows trasfering pickable objects,
             the former one executes LocalServer's commands. () 
     """
-    _queue   = PriorityQueue(100)
+    # _queue   = PriorityQueue(QUEUE_MAXITEMS)
+    _queue   = LocalQueue(QUEUE_MAXITEMS)
     _manager = Manager()
     _tasks   = []
     _status  = _manager.dict()
@@ -101,7 +176,7 @@ class LocalServer(object):
         while True:
             # Submit job to remote processes:
             while not self._queue.empty():
-                priority, job_scheduled = self._queue.get()
+                job_scheduled = self._queue.pop()
                 print "Job prepared for running: " + job_scheduled['job_name']
                 status = self._manager.dict()
                 self._status[job_scheduled['job_name']] = status
@@ -122,9 +197,9 @@ class LocalServer(object):
             job_candidate.load_parms_from_file(job_file)
             # TODO: Type checking on job_candidate 
             # NOTE: currently HAFARM priority spawns -1024 <--> 1024 (SGE style), 
-            priority = 1 - ((job_candidate.parms['priority'] + 1024) / 2048.0)
-            self._queue.put((priority, job_candidate.parms))
-            return True
+            # priority = 1 - ((job_candidate.parms['priority'] + 1024) / 2048.0)
+            return self._queue.put(job_candidate.parms)
+            # return True
         return
 
     def get_queue_size(self):
