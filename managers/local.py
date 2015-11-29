@@ -29,11 +29,33 @@ AUTHKEY        = b'HAFARM'
 QUEUE_MAXITEMS = 100
 
 
+class Cmp(object):
+    """ Custom comparator wrapper, so we can refer to built-in
+        compare methods via getattr.
+        FIXME: Is it necessery?
+    """
+    def __init__(self, value):
+        self._v = value
+    def __lt__(self, x):
+        return self._v < x
+    def __le__(self, x):
+        return self._v <= x
+    def __gt__(self, x):
+        return self._v > x
+    def __ge__(self, x):
+        return self._v >= x
+    def __eq__(self, x):
+        return self._v == x
+    def __ne__(self, x):
+        return self._v != x
+
+
 class LocalQueue(object):
     """ Custom Queue object. Not thread-safe atm (!).
     """
     _queue = OrderedDict()
     _lock  = Lock()
+    _log   = None
     def __init__(self, maxitems):
         self.maxitems = maxitems
         pass
@@ -43,7 +65,7 @@ class LocalQueue(object):
             item['priority'] value.
         """
         if not isinstance(job, type({})) \
-        or not isinstance(job, HaFarmParms)\
+        and not isinstance(job, HaFarmParms)\
         or len(self._queue) >= self.maxitems:
             return 
         # TODO: Type checking on job_candidate 
@@ -64,33 +86,152 @@ class LocalQueue(object):
         self.reorder_queue()
         return True
 
-    def get(self):
+    def get(self, run_tests=True):
         """ Get job with hightest priority possibly passing 
             some tests. Warning: job won't be removed from queue. 
             Use pop() instead.
         """
         # self._lock.acquire()
         if self._queue.keys():
-            return self._queue.values()[-1]
+            if not run_tests:
+                return self._queue.values()[-1]
+            else:
+                return self.pop(remove_from_queue=False)
 
-    def pop(self):
+
+    def pop(self, running_jobs=None, remove_from_queue=True, run_tests=True):
         """ Returns job with hightest priority removing it from
-            the queue at once. 
+            the queue at once. Optional remove_from_queue downgrade pop()
+            to getting item to allow scheduler perform other tests.
+            run_tests = False disables any scheduler logic except priority.
+            running_jobs: list of job_names currently in progress passed here
+            from the scheduler.
         """
+        self._running_jobs = running_jobs
+        # FIXME: temporal workaround...
+        def get_value_from_field(item, field): 
+            return item, item[field]
+        def none_of_in_queue(dependencies, tmp):
+            inqueue = [job for job in dependencies if job in self._queue.keys()]
+            return not inqueue
+        def none_of_in_progress(dependencies, tmp):
+            progress_status = self._running_jobs
+            # assert(progress_status.has_key['job_name'])
+            inprogress = [job for job in dependencies if job in progress_status.keys()]
+            inprogress = [job for job in inprogress if progress_status[job]['is_alive']]
+            return not inprogress
+        def run_test_cases(item, cases):
+            """ Cases are: (field, value, job.callable=None, callable=None, 
+                            alternator=None)
+                If both callable are none basic comparision is performed (==).
+                If both are functions(), they will be evaluated, and then combined with AND.
+                Optional alternator(item, value) is pre-pass for a field/value.
+
+                jcall() is typicly one of: __le__, __lt__, __gt__, 
+                                           __ge__, __eq__, __nq__, __cmp__
+                call() is any of bool = call(job[field], value).
+            """
+            from copy import deepcopy
+            # TODO: Cache to amortize?
+            if not item['job_name'] in self._log.keys():
+                self._log[item['job_name']] = [None,]
+            _cases = deepcopy(cases)
+            while _cases:
+                case = _cases.pop(0)
+                assert(len(case) == 5)
+                field, value, jcall, call, alternator = case
+                assert(item.has_key(field))
+                # Alternate value:
+                if alternator:
+                    assert(callable(alternator))
+                    item, value = alternator(item, value)
+                # Basic item[field], value comparision:
+                # NOTE: Early quit on False (not checking other cases)
+                if not jcall and not call:
+                    if not item[field] == key:
+                        self._log[item['job_name']] += [" ".join(str(x) \
+                            for x in (field, jcall, call, value))]
+                        return False
+                # Both built-in comparision AND custom callable():
+                elif jcall and call:
+                    assert(hasattr(item[field], jcall))
+                    assert(callable(call))
+                    if not getattr(Cmp(item[field]), jcall)(value) and call(item[field], value):
+                        self._log[item['job_name']] += [" ".join(str(x) \
+                            for x in (field, jcall, call, value))]
+                        return False
+                # Test with method from Cmp() which are standard ><==!=:
+                elif jcall:
+                    assert(hasattr(Cmp(item[field]), jcall))
+                    if not getattr(Cmp(item[field]), jcall)(value):
+                        self._log[item['job_name']] += [" ".join(str(x) \
+                            for x in (field, jcall, call, value))]
+                        return False
+                # Test with custom callable():
+                elif call:
+                    assert(callable(call))
+                    if not call(item[field], value):
+                        self._log[item['job_name']] += [" ".join(str(x) \
+                            for x in (field, jcall, call, value))]
+                        return False
+            # All tests passed:
+            self._log.pop(item['job_name'])
+            return True
+
+        def get_key_passing_cases_recursive(cases, idx=-1):
+            """ Apply recursively conditional tests on queue's items.
+                Return key of an item which passes the test or None,
+                if no items pass the tests.
+            """
+            # Nothing left (we iterate from the last to first):
+            if abs(idx) > len(self._queue): return None
+            key = self._queue.keys()[idx]
+            if run_test_cases(self._queue[key], cases):
+                return key
+            else:
+                return get_key_passing_cases_recursive(cases, idx-1)
+
+        # MAIN PART
+        # We might want to proceed without any conditions...:
+        if not run_tests:
+            if self._queue.keys():
+                self._lock.acquire()
+                key = self._queue.keys()[-1]
+                item = self._queue.pop(key)
+                self._lock.release()
+                return item
+            else:
+                return None
+
+        # We will test items against following conditions:
+        # TODO: Make TestCaseSuite external object.
+        cases = []
+        # Hold condition:
+        cases += [('job_on_hold', False, '__eq__', None, None)]
+        # Start time condition:
+        cases += [('req_start_time', time.time(), '__le__', None, None)]
+        # in-queue dependencies:
+        cases += [('hold_jid', 'job_name', None, none_of_in_queue, get_value_from_field)]
+        # NOTE: We have runtime dependency here (on running jobs), but queue doesn't know 
+        # about running jobs, should we pass it to Queue like atm?
+        # Overwise we would have to perform check on Scheduler side. That would imply
+        # some sort of black list, as jobs conditionally assinged to pop() would have 
+        # be ignored in second search... unless we remove them tempraray from queue and add
+        # back after search, but that would require lots of redundand work. This is slow here
+        # Anyway...
+        if running_jobs:
+            cases += [('hold_jid', 'job_name', None, none_of_in_progress, get_value_from_field)]
+
+        item = None
         if self._queue.keys():
             self._lock.acquire()
-            key = self._queue.keys()[-1]
-            item = self._queue.pop(key)
+            key = get_key_passing_cases_recursive(cases, -1)
+            if key:
+                if remove_from_queue: item = self._queue.pop(key)
+                else: item = self._queue[key]
             self._lock.release()
             return item
-        return
-
-    def pop_next(self, job_name=None):
-        """ Returns next job with hightest priority
-            if best match doesn't quilify...
-        """
-        if self._queue.keys():
-            pass
+        return None
 
     def sort_queue(self, key='priority'):
         """ Sorts queue based on items' key,
@@ -153,7 +294,7 @@ class LocalServer(object):
     _logger  = None
     # 
     _rpc_methods_ = ['job_submit', 'job_get_status', 'get_queue_size', \
-    'job_terminate', 'job_exists',]
+    'job_terminate', 'job_exists', 'get_queue_priority']
 
     def __init__(self, address=('', XMLRPC_SOCKET), **kwargs):
         """ Register xmlrpc functions for xmlrpc server.
@@ -176,7 +317,7 @@ class LocalServer(object):
         # Start main loop:
         self.queue_loop()
 
-    def queue_loop(self, interval=1):
+    def queue_loop(self, interval=5):
         """ This is main loop of the scheduler.
             We do as follows:
                 - we listen for new jobs via pipe.
@@ -185,39 +326,30 @@ class LocalServer(object):
                 - job which pass the test, are placed in PriorityQueue we have.
                 - we get job from a queue and start new execution process.
         """
-        # def dependant(job_id, dependencies):
-        #     inqueue    = [job in self._queue.keys() if job != job_id]
-        #     inprogress = [job for job in self._status.keys() if job['is_alive'] or job['exitcode']]
-        #     return job_id in inqueue or job_id in inprogress
 
         while True:
             # Submit job to remote processes:
+            # TODO: Logging is needed here as we need to know the reason
+            # Queue pops or refuses to use item.
             while not self._queue.empty():
-                job_scheduled = self._queue.pop()
-                dependencies = job_scheduled['hold_jid']
-                # TODO: !!!!
-                print "Job prepared for running: " + job_scheduled['job_name']
+                job_candidate = self._queue.pop(running_jobs=self._status)
+                if not job_candidate:
+                    time.sleep(interval)
+                    continue
                 status = self._manager.dict()
-                self._status[job_scheduled['job_name']] = status
-                job_process   = LocalProcess(job_scheduled, status)
+                self._status[job_candidate['job_name']] = status
+                job_process   = LocalProcess(job_candidate, status)
                 job_process.start()
-                print "Job started: " + job_scheduled['job_name']
                 time.sleep(interval)
             time.sleep(interval)
-            # print self._status
-
 
     def job_submit(self, job_file):
         """ Remote method used for job submission.
         """
         if os.path.isfile(job_file):
             job_candidate = hafarm.HaFarm()
-            job_candidate.load_parms_from_file(job_file)
-            # TODO: Type checking on job_candidate 
-            # NOTE: currently HAFARM priority spawns -1024 <--> 1024 (SGE style), 
-            # priority = 1 - ((job_candidate.parms['priority'] + 1024) / 2048.0)
+            job_candidate.load_parms_from_file(job_file, overwrite_name=False)
             return self._queue.put(job_candidate.parms)
-            # return True
         return
 
     def get_queue_size(self):
@@ -225,6 +357,10 @@ class LocalServer(object):
             jobs currently queued.
         """
         return self._queue.qsize()
+
+    def get_queue_priority(self):
+        return [(self._queue._queue[x]['job_name'], \
+            self._queue._queue[x]['priority']) for x in self._queue._queue.keys()]
 
     def get_jobs(self): pass
     def job_get_status(self, job_id): pass
@@ -269,6 +405,9 @@ class LocalScheduler(RenderManager):
         """ Returns a number of currently queued jobs.
         """
         return self._proxy.get_queue_size()
+
+    def get_queue_priority(self):
+        return self._proxy.get_queue_priority()
 
 
     @property
