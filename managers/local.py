@@ -55,7 +55,7 @@ class LocalQueue(object):
     """
     _queue = OrderedDict()
     _lock  = Lock()
-    _log   = None
+    _log   = dict()
     def __init__(self, maxitems):
         self.maxitems = maxitems
         pass
@@ -305,6 +305,8 @@ class LocalServer(object):
         if kwargs.get("log", True) and not self._logger:
             self._logger = multiprocessing.log_to_stderr()
             self._logger.setLevel(logging.INFO)
+        # Max # or tasks running sumultaniously...
+        self.maxtasks = kwargs.get("maxtasks", 1)
         # multiprocessing.conneciton pipe:
         self._pipe    = Listener(('', CONNECT_SOCKET), authkey=AUTHKEY)
         # Server to execute remote commands (see _rpc_methods):
@@ -334,6 +336,12 @@ class LocalServer(object):
             while not self._queue.empty():
                 job_candidate = self._queue.pop(running_jobs=self._status)
                 if not job_candidate:
+                    time.sleep(interval)
+                    continue
+                # Limit the number of tasks running in the same time:
+                # FIXME: Use process counting instead of home-brew stuff.
+                if len([task for task in self._status.keys() \
+                    if self._status[task]['is_alive']]) >= self.maxtasksP:
                     time.sleep(interval)
                     continue
                 status = self._manager.dict()
