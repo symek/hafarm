@@ -469,13 +469,18 @@ class HaFarm(HaAction):
             result = json.dump(_db, file, indent=2)
         return result, parms_file
 
-    def load_parms_from_file(self, parms_file):
-        """
+    def load_parms_from_file(self, parms_file, overwrite_name=True):
+        """ Load job parameters from *.json file. This takes place in two cases:
+            Job is to be rerun for various reasons in which case once usually wants
+            to alter its name to not to confuse system, or this is first run on the job
+            which submission was pospone for some reason. This happens in case of LocalScheduler
+            for example. 
         """
         with open(parms_file) as file:
             result = json.load(file)
             self.parms.merge_parms(result['parms'])
-            self.parms['job_name'] = self.generate_unique_job_name(self.parms['job_name'])
+            if overwrite_name:
+                self.parms['job_name'] = self.generate_unique_job_name(self.parms['job_name'])
 
 
     def get_queue_list(self):
