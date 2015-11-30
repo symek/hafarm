@@ -204,8 +204,10 @@ class MantraFarm(hafarm.HaFarm):
         # from ifd files:
         if rop:
             # FIXME: job_name is wrong spot to derive ifd name from...
+            # This couldn't be worse, really... :( 
+            # So many wrong decisions/bugs in one place...
             ifd_name = job_name
-            if "_mantra" in job_name:
+            if job_name.endswith("_mantra"):
                 ifd_name = job_name.replace("_mantra", "")
             self.parms['scene_file']     = os.path.join(self.node.parm("ifd_path").eval(), ifd_name + '.' + const.TASK_ID + '.ifd')
             self.parms['command']        = '$HFS/bin/' +  str(self.rop.parm('soho_pipecmd').eval()) 
@@ -291,8 +293,8 @@ def mantra_render_with_tiles(action):
 
     parent_job_name = action.parms['job_name']
     for tile in range(tiles_x*tiles_y):
-        mantra_farm = MantraFarm(action.node, action.rop, job_name   = parent_job_name + str(tile), 
-                                            crop_parms = (tiles_x,tiles_y,tile))
+        mantra_farm = MantraFarm(action.node, action.rop, job_name = parent_job_name, \
+            crop_parms = (tiles_x,tiles_y,tile))
         mantra_tiles.append(mantra_farm)
 
     # Tile merging job:
