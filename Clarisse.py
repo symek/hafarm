@@ -12,8 +12,9 @@ class ClarisseFarm(hafarm.HaFarm):
     def __init__(self):
         # Note: Force non-default version of backend support class.
         super(ClarisseFarm, self).__init__(backend='Sungrid')
-        self.parms['command']     = '$CLARISSE_HOME/crender '
-        self.parms['command_arg'] = ['-startup_script', '$HAFARM_HOME/scripts/clarisse/123.py']
+        self.parms['command']     = '$CLARISSE_HOME/crender'
+        # NOTE: SCENE_FILE has to be first in a row
+        self.parms['command_arg'] = ['@SCENE_FILE/>', '-startup_script', '$HAFARM_HOME/scripts/clarisse/123.py']
         self.parms['output_picture'] = ""
         self.parms['req_license']    = 'clarisselic=1' 
         self.parms['req_resources']  = ''
@@ -41,7 +42,7 @@ class ClarisseFarm(hafarm.HaFarm):
         command = self.parms['command_arg']
 
         # Scene file.
-        command += ['@SCENE_FILE/>']
+        # command += ['@SCENE_FILE/>']
         
         # Add camera option to commanline:
         camera  = self.parms['target_list']
