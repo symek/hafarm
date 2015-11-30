@@ -341,7 +341,7 @@ class LocalServer(object):
                 # Limit the number of tasks running in the same time:
                 # FIXME: Use process counting instead of home-brew stuff.
                 if len([task for task in self._status.keys() \
-                    if self._status[task]['is_alive']]) >= self.maxtasksP:
+                    if self._status[task]['is_alive']]) >= self.maxtasks:
                     time.sleep(interval)
                     continue
                 status = self._manager.dict()
