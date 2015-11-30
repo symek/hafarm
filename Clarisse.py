@@ -13,13 +13,16 @@ class ClarisseFarm(hafarm.HaFarm):
         # Note: Force non-default version of backend support class.
         super(ClarisseFarm, self).__init__(backend='Sungrid')
         self.parms['command']     = '$CLARISSE_HOME/crender '
-        self.parms['command_arg'] = []
+        self.parms['command_arg'] = ['-startup_script', '$HAFARM_HOME/scripts/clarisse/123.py']
         self.parms['output_picture'] = ""
         self.parms['req_license']    = 'clarisselic=1' 
         self.parms['req_resources']  = ''
         self.parms['job_on_hold'] = False
         #NOTE We render single frame per task, so double 'start_frame' isn't a bug.
         self.parms['frame_range_arg'] = ["-start_frame %s -end_frame %s", 'start_frame', 'start_frame']
+        self.parms['pre_render_script'] = 'clarisse_temp_dir=`mktemp -d --tmpdir=/tmp`; \
+        export CLARISSE_TEMP_DIR=$clarisse_temp_dir;\n echo Making Clarisse own tmp place in $clarisse_temp_dir '
+        self.parms['post_render_script'] = 'echo Deleting Clarisse tmp: $clarisse_temp_dir; rm -rf $CLARISSE_TEMP_DIR;'
 
 
     def pre_schedule(self):
