@@ -6,13 +6,19 @@ from xmlrpclib import ServerProxy
 from SimpleXMLRPCServer import SimpleXMLRPCServer
 from subprocess import Popen, PIPE
 from Queue import PriorityQueue
-from collections import OrderedDict
 import threading
 from threading import Lock
 
 # Std
 import traceback
 import sys, time, os
+
+# Python 2.6 compatibility:
+try:
+    from collections import OrderedDict
+except ImportError:
+    from ordereddict import OrderedDict
+
 # Own
 import hafarm
 from hafarm import utils
