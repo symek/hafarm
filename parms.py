@@ -24,15 +24,19 @@ TODO:
 
 
 class Parm(dict):
-    def __init__(self, copyfrom=None, name='', value=0, type='str', description='', optional=False, *args, **kwargs):
+    def __init__(self, copyfrom=None, name='', value=0, type='str', description='', 
+        optional=False, post_action=None, context=None, parent=None, *args, **kwargs):
         if not copyfrom:
             self.name = name
+            self.parent = parent
+            self.context = context
+            self.post_action = post_action
             super(Parm, self).__init__(*args, **kwargs)
             super(Parm, self).__setitem__('value', value)
             super(Parm, self).__setitem__('type', str(type))
             # super(Parm, self).__setitem__('class', )
-            super(Parm, self).__setitem__('description', description)
-            super(Parm, self).__setitem__('optional', optional)
+            # super(Parm, self).__setitem__('description', description)
+            # super(Parm, self).__setitem__('optional', optional)
             super(Parm, self).__setitem__('properties', {})
         else:
             self.merge_parms(copyfrom)
@@ -61,59 +65,77 @@ class Parm(dict):
     def __setitem__(self, key, value):
         """Custom item setter. Main reason fo it is type checking.
         """
-        # assert key in self, "Key %s has to have default in hafarm_defaults" % key
         if key in self.keys():
-            # if isinstance(value, type(self[key])):
             super(Parm, self).__setitem__(key, value)
-            # else:
-                # raise TypeError("Wrong type of value %s: %s" % (key, value))
         else:
             if issubclass(type(value), Parm): 
                 pass
             if not 'properties' in self.keys():
                 super(Parm, self).__setitem__('properties', {})
-            super(Parm, value).__setitem__('parent', self)
-            self['properties'][key] = value
+            # super(Parm, self).__setitem__('parent', self)
+            self['properties'][key]['value'] = value
 
     def __getitem__(self, key):
         if key in self.keys():
             if key != 'value':
                 return super(Parm, self).__getitem__(key)
             else:
-                print "self.eval()"
                 return self.eval()
         else:
             properties = super(Parm, self).__getitem__('properties')
-        print 'return properties[key]'
         return properties[key].eval()
 
+    def get(self, key):
+        if key in self.keys():
+            return super(Parm, self).__getitem__(key)
+        else:
+            properties = super(Parm, self).__getitem__('properties')
+        return properties[key]
+
     def eval(self, context=None):
+        if not context:
+            if not self.context:
+                if self.parent:
+                    if self.parent.context:
+                        context = self.parent.context
+            else:
+                context = self.context
         def find_key(key): pass
-
+        def eval_value(value, context): 
+            if isinstance(value, type('')):
+                if value.startswith('$'):
+                    value = value.strip("$")
+                    if not context:
+                        value = os.getenv(value, 'not set.')
+                    else:
+                        if value in context.keys():
+                            value = context[value]
+                elif value.startswith('@') and value.endswith("/>"):
+                    key = value[1:-2].lower()
+                    if key in self.parent['properties'].keys():
+                        value = self.parent[key]
+            _type = getattr(__builtin__, self['type'])
+            value = _type(value)
+            return value
+        print context
         value = super(Parm, self).__getitem__('value')
-        if isinstance(value, type('')):
-            if value.startswith('$'):
-                value = value.strip("$")
-                if not context:
-                    value = os.getenv(value, 'not set.')
-                else:
-                    if value in context.keys():
-                        value = context[value]
-            elif value.startswith('@') and value.endswith("/>"):
-                value = None
-
-        _type = getattr(__builtin__, self['type'])
-        value = _type(value)
+        if isinstance(value, type([])):
+            value = [eval_value(v, context) for v in value]
+            if self['type'] == 'str':
+                value = "".join([str(x) for x in value])
+        else:
+            value = eval_value(value, context)
         return value
 
     def __repr__(self):
         return json.dumps(self, indent=4, check_circular=False)
         # return yaml.dump(self)
 
-    def load(self, filename):
+    def load(self, filename, context=None):
         with open(filename) as file:
             parms = json.load(file)
             self.merge_parms(parms)
+            self.context= context
             return True
         return
 
@@ -135,11 +157,11 @@ if __name__ == "__main__":
     end   = Parm(name='end_frame', value=48, type='int', description='End frame of jobs tasks' )
     com   = Parm(name='command', value='ls', type='str', description='Command to be executed' )
     arg   = Parm(name='command_arg', value=['-la', '/tmp'], type='list', description='Command arguments to be executed.' )
-    pos   = Parm(name ='position', value=[1.2,2.2,3.3], type='list')
-    ran   = Parm(name='frame_range', vale=['-f', ' ', '@START_FRAME/>', '-', '@END_FRAME/>'])
+    pos   = Parm(name ='position', value=[1.2,2.2,3.3], type='float', description='World origin.')
+    ran   = Parm(name='frame_range', value=['-f', ' ', '@START_FRAME/>', '-', '@END_FRAME/>'], type='str')
     # pos['value'] = a
 
-    scene.add_properties((user, start, end, com, arg, pos))
+    scene.add_properties((user, start, end, com, arg, pos, ran))
     # print e
     # print scene['user']
     # test = Parm(copyfrom=scene)
@@ -149,16 +171,25 @@ if __name__ == "__main__":
 
     # print scene
 
-    scene['user'] = 'ktos'
-    print scene['user']
+    # scene['user'] = '$USER'
+    # print scene['user']
+    # x = scene.get('user')
+    # print type(x.parent)
+    context = {'USER': 'KTOSTAM'}
+    # scene.context = context
+    print scene['frame_range']
+    print scene['position']
+    print scene.get('position')
+    # print scene['user']
 
     with open(JSON_FILE, 'w') as file:
         # json.dump(scene, file)
         file.write(scene.__repr__())
 
     scene = Parm()
-    scene.load(JSON_FILE)
-    # print scene
+    scene.load(JSON_FILE, context)
+    print scene
+    print scene['user']
     # print scene.keys()
     # print a
     # with open(JSON_FILE) as file:
