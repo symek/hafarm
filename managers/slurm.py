@@ -2,7 +2,6 @@
 # import drmaa
 import os, sys
 import hafarm
-from hafarm import utils
 from hafarm import const
 from hafarm.manager import RenderManager 
 
@@ -61,7 +60,7 @@ class Slurm(RenderManager):
                 self.parms['command_arg'].insert(idx, '$NPROC')
 
         # SGE specific tweak (we can rely on SGE env variable instead of specifying explicite frames)
-        self.parms['command_arg'] += [self.parms['frame_range_arg'][0] % tuple(sge_frames_variables)]
+        self.parms['command_arg'] += [self.parms['frame_range_arg'][0] % tuple(slurm_frames_variables)]
         command_arg = " ".join(arg for arg in self.parms['command_arg'])
                 
         # FIXME: Change hafarm specific variables for SGE once. Currently we do it manually. 
@@ -84,6 +83,18 @@ class Slurm(RenderManager):
             # This is standard:
             file.write('#!/bin/bash -l \n')
             file.write('#SBATCH --array=%s-%s:%s\n' %  time_parm) 
+            if  self.parms['job_on_hold']: file.write('#SBATCH -H \n') 
+            file.write('#SBATCH -n 1 \n')
+            file.write('#SBATCH -c %s \n' % self.parms['slots'])
+            if self.parms['req_license']: file.write('#SBATCH -L %s \n' % self.parms['req_license'])
+            if self.parms['hold_jid']: file.write('#SBATCH -d %s \n' % ','.join(self.parms['hold_jid'])) 
+            if self.parms['req_start_time'] != 0.0 : file.write('#SBATCH --begin=now+%s  \n' % self.parms['req_start_time'])
+
+            if self.parms['rerun_on_error']: file.write('#SBATCH --requeue \n')
+            if self.parms['email_list']: file.write('#SBATCH --mail-user=%s\n ' % ",".join(self.parms['email_list']))
+            if self.parms['email_opt']: file.write('#SBATCH --mail-type=%s\n' % self.parms['email_opt'])
+            if self.parms['queue']: file.write('#SBATCH -p %s\n' % self.parms['queue'])
+	    if self.parms['group'] and self.parms['group'] != 'allhosts': file.write("#SBATCH  -C %s\n" % self.parms['group'])
 
             # We try to use single script for all chuncks, so we need some expressions:
             # TODO: this should work for multi-frame rendering like Nuke, Hscript, Maya.
@@ -98,8 +109,8 @@ class Slurm(RenderManager):
             file.write("echo Machine name: ${HOSTNAME}\n")
             file.write("echo User    name: ${USER}\n")
             file.write("echo Slots:        $NSLOTS\n")
-            file.write("echo Processors  : `nproc`\n")
-            file.write("NPROC=`nproc`\n")
+            #file.write("echo Processors  : `nproc`\n")
+            #file.write("NPROC=`nproc`\n")
             # Determine # of cores and set max for rendering if required (that is slots = 0)
             file.write("echo Memory stats: `egrep 'Mem|Cache|Swap' /proc/meminfo`\n")
             file.write("echo Scene file  : %s\n" % self.parms['scene_file'])
@@ -133,65 +144,13 @@ class Slurm(RenderManager):
         path        = os.path.expandvars(self.parms['script_path'])
         script_path = os.path.join(path, self.parms['job_name'] + '.job')
        
-        # Job is send in 'hold' state:
-        job_on_hold   = '-H' if  self.parms['job_on_hold'] else ""
-        # Request license 
-        # TODO: Add other resources
-        req_resources = ['-n %s ' % self.parms['slots']]
-        req_resources = ['-c %s ' % self.parms['slots']]
-        req_resources +=[ '-L %s' % self.parms['req_license']] if self.parms['req_license'] else []
-
-        # Jobs' interdependency:
-        hold_jid = ['-d', '%s' % ','.join(self.parms['hold_jid'])] if self.parms['hold_jid'] else []
-
-        # Job's array interdependency:
-        # TODO hold_jid_ad = ['-hold_jid_ad', '%s' % ','.join(self.parms['hold_jid_ad'])] if self.parms['hold_jid_ad'] else []
-
-        # This will put Nuke for example in queue waiting for free slots,
-        # but we want it to be selectable based on chosen queue: nuke queue: don't wait
-        # 3d queue: wait with others.
-        # FIXME: Shouldn't we come back to -pe cores flag?
-        # or even -pe $NSLOTS for that matter...
-        # TODO: SGE have soft and hard requests... support it.
-        #if self.parms['req_resources']:
-        #    req_resources += ' -hard -l %s' % self.parms['req_resources']
-
-        # Request start time:
-        if self.parms['req_start_time'] != 0.0:
-            start_time = '--begin=now+%s ' % self.parms['req_start_time']
-        else:
-            start_time = ''
-
-        # Allow job to rerun on error:
-        rerun_on_error = ""
-        if self.parms['rerun_on_error']: rerun_on_error = '--requeue'
- 
-        # If we want to avoid temporarly suspended machines
-        # TODO check_suspend = ['-ckpt', 'check_suspend'] if not self.parms['ignore_check'] else []
-
-        # Email list and triggers options:
-        email_list = " "
-        email_opt  = ''
-        if self.parms['email_list']: email_list = '--mail-user=%s ' % ",".join(self.parms['email_list'])
-        if self.parms['email_opt']: email_opt = '--mail-type=%s' % self.parms['email_opt']
-
-        # Queue request with host groups support
-        # TODO: add specific host support regular expressions (?)
-        queue = ""
-        if self.parms['queue']: queue = '-p %s' % self.parms['queue']
-        
-	if self.parms['group'] and self.parms['group'] != 'allhosts': 
-            queue += " -C %s" % self.parms['group']
-
-        # This should be clean uped. Either all with flag names or none. 
+               # This should be clean uped. Either all with flag names or none. 
         arguments = ['sbatch']
-        arguments += [job_on_hold, "-J %s" % self.parms['job_name'],
-                     '--export=ALL', rerun_on_error,
+        arguments += ["-J %s" % self.parms['job_name'],
+                     '--export=ALL',
                      '-o %s' % os.path.expandvars(self.parms['log_path']),
                      '-e %s' % os.path.expandvars(self.parms['log_path']),
-                     queue,
-                     req_resources, check_suspend,
-                    email_list, email_opt, hold_jid, hold_jid_ad, start_time, script_path]
+                     script_path]
 
         # FIXME: Temporary cleanup: 
         cc = []
@@ -208,7 +167,7 @@ class Slurm(RenderManager):
                 if word != "":
                     cc.append(str(word))
                  
-        self.qsub_command = cc 
+        self.sbatch_command = cc 
         return cc
 
     def _submit_job(self, command=None):
@@ -218,6 +177,7 @@ class Slurm(RenderManager):
 
         if not command: 
             command = self.sbatch_command
+	print command
 
         # TODO: What we should do with output?
         try:
@@ -263,9 +223,6 @@ class Slurm(RenderManager):
         sp = subprocess.Popen(['sstat', '-j', job_name], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         out, err = sp.communicate()
         db = {}
-        if not 'error' in err:
-            return utils.parse_sstat(out, db)
-        return
 
     def test_connection(self):
         return
