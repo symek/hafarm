@@ -1,7 +1,6 @@
 import os
 from const import hafarm_defaults
 import json
-import yaml
 import __builtin__
 import gc
 import array
@@ -207,6 +206,7 @@ class Parm(dict):
         return json.dumps(self, indent=4, check_circular=False)
 
     def __yaml__(self):
+        import yaml
         return yaml.dump(self)
 
     # def __str__(self):
