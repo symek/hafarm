@@ -84,9 +84,13 @@ class Slurm(RenderManager):
             file.write('#!/bin/bash -l \n')
             file.write('#SBATCH --array=%s-%s:%s\n' %  time_parm) 
             if  self.parms['job_on_hold']: file.write('#SBATCH -H \n') 
-            file.write('#SBATCH -n 1 \n')
-            file.write('#SBATCH -c %s \n' % self.parms['slots'])
-            if self.parms['req_license']: file.write('#SBATCH -L %s \n' % self.parms['req_license'])
+            file.write('#SBATCH -N 1 \n')
+            file.write('#SBATCH --exclusive\n')
+            # file.write('#SBATCH -c %s \n' % self.parms['slots'])
+            if self.parms['req_license']: 
+                req_license = self.parms['req_license'].split('=')
+                req_license = ":".join(req_license)
+                file.write('#SBATCH -L %s \n' % req_license)
             if self.parms['hold_jid']: file.write('#SBATCH -d %s \n' % ','.join(self.parms['hold_jid'])) 
             if self.parms['req_start_time'] != 0.0 : file.write('#SBATCH --begin=now+%s  \n' % self.parms['req_start_time'])
 

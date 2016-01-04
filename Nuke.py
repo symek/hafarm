@@ -16,8 +16,8 @@ import hafarm
 from hafarm import utils
 
 class NukeFarm(hafarm.HaFarm):
-    def __init__(self):
-        super(NukeFarm, self).__init__()
+    def __init__(self, **kwargs):
+        super(NukeFarm, self).__init__(**kwargs)
         version = str(nuke.NUKE_VERSION_MAJOR) + "." + str(nuke.NUKE_VERSION_MINOR)
         self.parms['command']     = 'Nuke%s' % version
         self.parms['command_arg'] = ['-x -V ']
@@ -67,7 +67,7 @@ class NukeFarmGUI(nukescripts.PythonPanel ):
     def __init__( self ):
         nukescripts.PythonPanel.__init__( self, "NukeFarmGUI", "com.human-ark.NukeFarmGUI" )
         self.setMinimumSize(100,400)
-        self.farm = NukeFarm()
+        self.farm = NukeFarm(backend='Slurm')
         self.initGUI()
 
     def run(self):
