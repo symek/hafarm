@@ -27,18 +27,24 @@ TODO:
 
 class Parm(dict):
     def __init__(self, copyfrom=None, name='', value=0, type='str', description='', 
-        optional=False, post_action=None, context=None, *args, **kwargs):
+        optional=False, post_action=None, context=None, initilize=False, *args, **kwargs):
         if not copyfrom:
-            self.name = name
             self.context = context
-            self.post_action = post_action
             super(Parm, self).__init__(*args, **kwargs)
             super(Parm, self).__setitem__('value', value)
             super(Parm, self).__setitem__('type', str(type))
-            # super(Parm, self).__setitem__('class', )
             super(Parm, self).__setitem__('description', description)
-            # super(Parm, self).__setitem__('optional', optional)
             super(Parm, self).__setitem__('properties', OrderedDict())
+            # TODO: This is bad thing. Used only in add_properties()?,
+            # We should remove that or make something like '.private' 
+            # dict items perhpas
+            self.name = name
+            # self.post_action = post_action
+            # super(Parm, self).__setitem__('class', )
+            # super(Parm, self).__setitem__('optional', optional)
+            # TODO: configure it.
+            if initilize:
+                self.initialize()
         else:
             self.merge_parms(copyfrom)
 
@@ -56,7 +62,7 @@ class Parm(dict):
             elif isinstance(value, type(())):
                 super(Parm, self).__setitem__(str(key), tuple(value))
             elif isinstance(value, type({})) and value.keys():
-                parm = Parm()
+                parm = Parm(init=False)
                 parm.merge_parms(value)
                 super(Parm, self).__setitem__(str(key), parm)
             else:
@@ -64,7 +70,13 @@ class Parm(dict):
 
     def initialize(self, default=None): 
         '''Load default settings. Not implemented.'''
-        pass
+        path = os.getenv("HAFARM_HOME", "./")
+        defaults  = 'defaults.json'
+        defaults = os.path.join(path, defaults)
+        if os.path.isfile(defaults):
+            self.load(defaults)
+            return True
+        return
             
     def __setitem__(self, key, value):
         """Custom item setter. Main reason fo it is type checking.
@@ -213,7 +225,8 @@ class Parm(dict):
 HaFarmParms = Parm
 
 if __name__ == "__main__":
-    JSON_FILE = './test.json'
+    path = os.getenv("HAFARM_HOME", "./")
+    JSON_FILE = os.path.join(path, './defaults.json')
 
     # TODO: Group parms into logical sets. 
     scene = Parm(name='hafarm_job',  value='test_job', type='str',   description='Parameters controling job.')
