@@ -7,6 +7,7 @@ import gc
 import array
 import re
 import fnmatch # Should we simply use re instead?
+__SEPARATOR__ = '/'
 
 # Python 2.6 compatibility:
 try:
@@ -100,6 +101,7 @@ class Parm(dict):
         """ Dictionary-like getter. Except:
             (a) keys not present in self are passed down to 'properties' dict. 
             (b) items are evaluted with eval() method, not returned 'as-is'.
+            (c) keys can be path-like key/nestedkey for access to nested parms.
         """
         if key in self.keys():
             if key != 'value':
@@ -108,7 +110,13 @@ class Parm(dict):
                 return self.eval(context=self.context)
         else:
             properties = super(Parm, self).__getitem__('properties')
-        return properties[key].eval(parent=self, context=self.context)
+            if __SEPARATOR__ in key:
+                parts = key.split(__SEPARATOR__)
+                key, parts = parts[0], __SEPARATOR__.join(parts[1:])
+                return properties[key][parts]
+            else:
+                assert key in properties.keys()
+                return properties[key].eval(parent=self, context=self.context)
 
     def get(self, key):
         """ Get raw value by key, not evaluated as in __getitem__.
@@ -284,6 +292,7 @@ if __name__ == "__main__":
     sub_time   = Parm(name='submission_time', value=0.0,  type='float', description='Set when job is submitted.')
     req_res    = Parm(name='req_resources',   value=[],   type='str',   description='Requested cluster resources.')
     req_lic    = Parm(name='req_license',     value=[],   type='str',   description='Requested licenses avaiable on the cluster.')
+
     # TODO: outputs should have special logic for file resources ()
     # It could be implameted via type, instead of 'list' we may support custom types, like Resource()
     outputs    = Parm(name='output_picture',  value=[],     type='list',   description='List of output files from the job.')
