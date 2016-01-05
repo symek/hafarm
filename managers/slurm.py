@@ -106,7 +106,7 @@ class Slurm(RenderManager):
             file.write('LAST_FRAME=%s\n' % self.parms['end_frame'])
             file.write('RANGE_FRAME=$[${SLURM_ARRAY_TASK_ID}+%d]\n' % int(self.parms['step_frame']))
             file.write("if ((${RANGE_FRAME}>${LAST_FRAME})); then RANGE_FRAME=${LAST_FRAME}; fi\n")
-            file.write("OUTPUT_PICTURE=%s" % self.parms['output_picture'])
+            file.write("OUTPUT_PICTURE=%s\n" % self.parms['output_picture'])
             # Some standard info about current render:
             # TODO extend it with more system debuging info (current disc space, free RAM, CPU load etc.)
             file.write("echo Render start: `date`\n")
@@ -152,8 +152,8 @@ class Slurm(RenderManager):
         arguments = ['sbatch']
         arguments += ["-J %s" % self.parms['job_name'],
                      '--export=ALL',
-                     '-o %s' % os.path.expandvars(self.parms['log_path']),
-                     '-e %s' % os.path.expandvars(self.parms['log_path']),
+                     "-o %s" % os.path.expandvars(self.parms['log_path']),
+                     "-e %s" % os.path.expandvars(self.parms['log_path']),
                      script_path]
 
         # FIXME: Temporary cleanup: 
