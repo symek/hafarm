@@ -152,8 +152,12 @@ class Slurm(RenderManager):
         arguments = ['sbatch']
         arguments += ["-J %s" % self.parms['job_name'],
                      '--export=ALL',
-                     "-o %s" % os.path.expandvars(self.parms['log_path']),
-                     "-e %s" % os.path.expandvars(self.parms['log_path']),
+                     # TODO: Temporary hack for Slurm, which expects full path/logfile.out,
+                     # or writes logs into working dir (so we choose later option with -D,
+                     # waiting for Slurm script allowing to spec path...)
+                     '-D %s' % os.path.expandvars(self.parms['log_path']),
+                     # "-o %s" % os.path.expandvars(self.parms['log_path']),
+                     # "-e %s" % os.path.expandvars(self.parms['log_path']),
                      script_path]
 
         # FIXME: Temporary cleanup: 
