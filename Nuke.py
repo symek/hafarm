@@ -67,7 +67,7 @@ class NukeFarmGUI(nukescripts.PythonPanel ):
     def __init__( self ):
         nukescripts.PythonPanel.__init__( self, "NukeFarmGUI", "com.human-ark.NukeFarmGUI" )
         self.setMinimumSize(100,400)
-        self.farm = NukeFarm(backend='Slurm')
+        self.farm = NukeFarm()
         self.initGUI()
 
     def run(self):
