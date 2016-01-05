@@ -306,12 +306,14 @@ class RootAction(HaAction):
         pass
 
 
+# Overwrite default backend with env. variable...
+HAFARM_DEFAULT_BACKEND = os.getenv('HAFARM_DEFAULT_BACKEND', const.HAFARM_DEFAULT_BACKEND)
 
 
 class HaFarm(HaAction):
     """Parent class to be inherited by host specific classes (Houdini, Maya, Nuke etc).
     """
-    def __init__(self, job_name='', queue='', backend = 'Sungrid', backend_version = None):
+    def __init__(self, job_name='', queue='', backend=HAFARM_DEFAULT_BACKEND, backend_version = None):
         super(HaFarm, self).__init__()
         # Possibly useless, good for debuging:
         from uuid import uuid4

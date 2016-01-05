@@ -17,6 +17,7 @@ DEBUG          = 1
 TASK_ID_PADDED = '@TASK_ID_PADDED/>'
 SCENE_FILE     = '@SCENE_FILE/>'
 RENDER_WRANGERS= ['renderfarm@human-ark.com']
+HAFARM_DEFAULT_BACKEND = 'Slurm'
 
 
 
