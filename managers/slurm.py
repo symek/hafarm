@@ -95,7 +95,7 @@ class Slurm(RenderManager):
                 req_license = self.parms['req_license'].split('=')
                 req_license = ":".join(req_license)
                 file.write('#SBATCH -L %s \n' % req_license)
-            if self.parms['hold_jid'] or self.parms['hold_jid']:
+            if self.parms['hold_jid'] or self.parms['hold_jid_ad']:
                 deps = self.parms['hold_jid'] + self.parms['hold_jid_ad']
                 deps = [self.get_jobid_by_name(name) for name in deps]
                 deps = [x[0] for x in deps if not x[1]]
