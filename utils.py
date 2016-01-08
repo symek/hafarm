@@ -187,6 +187,32 @@ def collapse_digits_to_sequence(frames):
     sequence = [tuple(x) for x in sequence]
     return sequence
 
+
+def expand_sequencestr_into_frames(sequence_string):
+    """ Given a string representing frameseq like: '1,2,3-5,6-10x2,11-20:2' 
+        returns an expanded a list with suscessive frames.
+    """
+    assert isinstance(s, str)
+    items = s.split(",")
+    items = [x.strip() for x in items]
+    sequence = []
+    for seq in items:
+        step = '1'
+        if "-" in seq:
+            start, end = seq.split('-')
+            if 'x' in end:
+                end, step = end.split('x')
+                assert start.isdigit() == end.isdigit() == step.isdigit() == True
+                sequence += range(int(start), int(end)+1, int(step))
+            if ':' in end:
+                end, step = end.split(':')
+                assert start.isdigit() == end.isdigit() == step.isdigit() == True
+                for substep in range(int(step)):
+                    sequence += range(int(start)+substep, int(end)+1, int(step))
+        elif seq.isdigit():
+            sequence += [int(seq)]
+    return sequence
+
 def parse_sstat(output, db=None):
     '''Parses Slurm sstat utility output to Python dictonary.
     '''
