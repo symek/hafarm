@@ -61,7 +61,7 @@ class HbatchFarm(hafarm.HaFarm):
                 self.parms['step_frame']  = int(self.node.parm('step_frame').eval())
 
         # Requests resurces and licenses (TODO shouldn't we aquire slot here?)
-        self.parms['req_license']   = 'hbatchlic=1' 
+        self.parms['req_license']   = 'hbatch_lic=1' 
         self.parms['req_resources'] = 'procslots=%s' % int(self.node.parm('slots').eval())
 
         # Use provided frame list instead of frame range. Hscript needs bellow changes to
@@ -169,7 +169,7 @@ class MantraFarm(hafarm.HaFarm):
         if crop_parms != (1,1,0):
             self.parms['job_name']  += "%s%s" % (const.TILE_ID , str(crop_parms[2]))
 
-        self.parms['req_license']    = '' 
+        self.parms['req_license']    = 'mantra_lic=1' 
         self.parms['req_resources']  = ''
         #self.parms['step_frame']      = int(self.node.parm('step_frame').eval())
 
