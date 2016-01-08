@@ -234,4 +234,20 @@ class Slurm(RenderManager):
 
     def test_connection(self):
         return
+
+    def name2id( name ):
+        try:
+            return int(subprocess.Popen(['squeue', '--name=%s'%name, '-h' ,'-a' ,'-o', '%i' ], universal_newlines=True ,shell=False, stdout=subprocess.PIPE).communicate()[0])
+        except:
+            return 0
+ 
+    def id2name( i ):
+        try:
+            out=subprocess.Popen(['squeue', '-j %d'%i, '-h' ,'-a' ,'-o', '%j' ], universal_newlines=True ,shell=False, stderr=None,stdout=subprocess.PIPE).communicate()[0].rstrip('\n')
+            if out.returncode() == 0 :
+                return out.communicate()[0].rstrip('\n')
+            else:
+                return ''
+        except:
+            return ''
         
