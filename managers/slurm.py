@@ -1,11 +1,15 @@
 # No dramaa atm
 # import drmaa
 import os, sys
+import subprocess
 import hafarm
 from hafarm import const
 from hafarm.manager import RenderManager 
 
 __plugin__version__ = 0.1
+
+
+SQUEUE_BIN = 'squeue'
 
 class Slurm(RenderManager):
     def __init__(self):
@@ -91,7 +95,11 @@ class Slurm(RenderManager):
                 req_license = self.parms['req_license'].split('=')
                 req_license = ":".join(req_license)
                 file.write('#SBATCH -L %s \n' % req_license)
-            if self.parms['hold_jid']: file.write('#SBATCH -d %s \n' % ','.join(self.parms['hold_jid'])) 
+            if self.parms['hold_jid'] or self.parms['hold_jid']:
+                deps = self.parms['hold_jid'] + self.parms['hold_jid_ad']
+                deps = [self.get_jobid_by_name(name) for name in deps]
+                deps = [x[0] for x in deps if not x[1]]
+                file.write('#SBATCH -d %s \n' % ','.join(deps)) 
             if self.parms['req_start_time'] != 0.0 : file.write('#SBATCH --begin=now+%s  \n' % self.parms['req_start_time'])
 
             if self.parms['rerun_on_error']: file.write('#SBATCH --requeue \n')
@@ -235,19 +243,30 @@ class Slurm(RenderManager):
     def test_connection(self):
         return
 
-    def name2id( name ):
-        try:
-            return int(subprocess.Popen(['squeue', '--name=%s'%name, '-h' ,'-a' ,'-o', '%i' ], universal_newlines=True ,shell=False, stdout=subprocess.PIPE).communicate()[0])
-        except:
-            return 0
- 
-    def id2name( i ):
-        try:
-            out=subprocess.Popen(['squeue', '-j %d'%i, '-h' ,'-a' ,'-o', '%j' ], universal_newlines=True ,shell=False, stderr=None,stdout=subprocess.PIPE).communicate()[0].rstrip('\n')
-            if out.returncode() == 0 :
-                return out.communicate()[0].rstrip('\n')
-            else:
-                return ''
-        except:
-            return ''
+    def get_jobid_by_name(self, job_name, split_tasks=True):
+        ''' Returns slurm's job id from the provided
+            jobname. It may return more than single job.
+        '''
         
+        job_name = str(job_name)
+        command = [SQUEUE_BIN, '--name=%s' % job_name, '-h' ,'-a' ,'-o', '%i' ]
+        out, err =subprocess.Popen(command, universal_newlines=True ,shell=False, \
+            stderr=subprocess.PIPE,stdout=subprocess.PIPE).communicate()
+        if out:
+            out = out.split()
+            out = [line.strip() for line in out]
+            if split_tasks:
+                assert "_" in out[0]
+                out = [x.split("_")[0] for x in out]
+                out = [int(x) for x in out]
+        return out, err
+ 
+    def get_jobname_by_id(self, _id):
+        ''' Returns slurm's job_id by its job_name. 
+        '''
+        assert isinstance(_id, int)
+        command = [SQUEUE_BIN, '-j %d' %_id, '-h' ,'-a' ,'-o', '%j' ]
+        out, err =subprocess.Popen(command, universal_newlines=True ,shell=False, \
+            stderr=subprocess.PIPE,stdout=subprocess.PIPE).communicate()
+        return out.strip(), err.strip()
+       
