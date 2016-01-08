@@ -187,7 +187,7 @@ def collapse_digits_to_sequence(frames):
     sequence = [tuple(x) for x in sequence]
     return sequence
 
-def parse_qacct(output, db=None):
+def parse_sstat(output, db=None):
     '''Parses Slurm sstat utility output to Python dictonary.
     '''
     if not db: db = {}

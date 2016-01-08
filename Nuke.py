@@ -16,8 +16,8 @@ import hafarm
 from hafarm import utils
 
 class NukeFarm(hafarm.HaFarm):
-    def __init__(self):
-        super(NukeFarm, self).__init__()
+    def __init__(self, **kwargs):
+        super(NukeFarm, self).__init__(**kwargs)
         version = str(nuke.NUKE_VERSION_MAJOR) + "." + str(nuke.NUKE_VERSION_MINOR)
         self.parms['command']     = 'Nuke%s' % version
         self.parms['command_arg'] = ['-x -V ']
