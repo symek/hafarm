@@ -103,7 +103,7 @@ class Slurm(RenderManager):
             if self.parms['req_start_time'] != 0.0 : file.write('#SBATCH --begin=now+%s  \n' % self.parms['req_start_time'])
 
             if self.parms['rerun_on_error']: file.write('#SBATCH --requeue \n')
-            if self.parms['email_list']: file.write('#SBATCH --mail-user=%s\n ' % ",".join(self.parms['email_list']))
+            if self.parms['email_list']: file.write('#SBATCH --mail-user=%s\n' % ",".join(self.parms['email_list']))
             if self.parms['email_opt']: file.write('#SBATCH --mail-type=%s\n' % self.parms['email_opt'])
             if self.parms['queue']: file.write('#SBATCH -p %s\n' % self.parms['queue'])
 	    if self.parms['group'] and self.parms['group'] != 'allhosts': file.write("#SBATCH  -C %s\n" % self.parms['group'])
