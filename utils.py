@@ -188,12 +188,12 @@ def collapse_digits_to_sequence(frames):
     return sequence
 
 
-def expand_sequencestr_into_frames(sequence_string):
+def expand_sequence_into_digits(sequence_string):
     """ Given a string representing frameseq like: '1,2,3-5,6-10x2,11-20:2' 
         returns an expanded a list with suscessive frames.
     """
-    assert isinstance(s, str)
-    items = s.split(",")
+    assert isinstance(sequence_string, str)
+    items = sequence_string.split(",")
     items = [x.strip() for x in items]
     sequence = []
     for seq in items:

@@ -78,7 +78,7 @@ def main():
         driver.render(frame_range=frame_range, ignore_inputs=True, verbose=True)
     # Or render from a list of random frames:
     else:
-        for frame in utils.expand_sequencestr_into_frames(options.frame_list):
+        for frame in utils.expand_sequence_into_digits(options.frame_list):
             driver.render(frame_range=(frame, frame), ignore_inputs=True, verbose=True)
         
 
