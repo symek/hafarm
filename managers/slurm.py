@@ -95,13 +95,20 @@ class Slurm(RenderManager):
                 req_license = self.parms['req_license'].split('=')
                 req_license = ":".join(req_license)
                 file.write('#SBATCH -L %s \n' % req_license)
+
+            # ATM Slurm does't support array dependency nor does allow
+            # creating dependecy based on job's names (only jobids)
+            # We need to ask Slurn for jobids providing it with our names.
+            # NOTE: We treat array dependencies as simply dependencies for now.
             if self.parms['hold_jid'] or self.parms['hold_jid_ad']:
                 deps = self.parms['hold_jid'] + self.parms['hold_jid_ad']
+                # get_jobids_by_name returns a list: [jobid, ...]
                 deps = [self.get_jobid_by_name(name) for name in deps]
-                deps = [x[0] for x in deps if not x[1]]
+                # Flattern array of arrays:
+                deps = [str(item) for sublist in deps for item in sublist]
                 file.write('#SBATCH -d %s \n' % ','.join(deps)) 
-            if self.parms['req_start_time'] != 0.0 : file.write('#SBATCH --begin=now+%s  \n' % self.parms['req_start_time'])
 
+            if self.parms['req_start_time'] != 0.0 : file.write('#SBATCH --begin=now+%s  \n' % self.parms['req_start_time'])
             if self.parms['rerun_on_error']: file.write('#SBATCH --requeue \n')
             if self.parms['email_list']: file.write('#SBATCH --mail-user=%s\n' % ",".join(self.parms['email_list']))
             if self.parms['email_opt']: file.write('#SBATCH --mail-type=%s\n' % self.parms['email_opt'])
@@ -155,18 +162,14 @@ class Slurm(RenderManager):
         # We repeat work here temporarly for extra clearnless(see above):
         path        = os.path.expandvars(self.parms['script_path'])
         script_path = os.path.join(path, self.parms['job_name'] + '.job')
+        stdout      = "-o %s/%s" % (os.path.expandvars(self.parms['log_path']), self.parms['job_name']) + ".o%A.%a"
+        stderr      = "-e %s/%s" % (os.path.expandvars(self.parms['log_path']), self.parms['job_name']) + ".e%A.%a"
+        workdir     = '-D %s'    % os.path.expandvars(self.parms['log_path'])
        
+
                # This should be clean uped. Either all with flag names or none. 
         arguments = ['sbatch']
-        arguments += ["-J %s" % self.parms['job_name'],
-                     '--export=ALL',
-                     # TODO: Temporary hack for Slurm, which expects full path/logfile.out,
-                     # or writes logs into working dir (so we choose later option with -D,
-                     # waiting for Slurm script allowing to spec path...)
-                     '-D %s' % os.path.expandvars(self.parms['log_path']),
-                     # "-o %s" % os.path.expandvars(self.parms['log_path']),
-                     # "-e %s" % os.path.expandvars(self.parms['log_path']),
-                     script_path]
+        arguments += ["-J %s" % self.parms['job_name'], '--export=ALL', workdir, stdout, stderr, script_path]
 
         # FIXME: Temporary cleanup: 
         cc = []
@@ -259,7 +262,8 @@ class Slurm(RenderManager):
                 assert "_" in out[0]
                 out = [x.split("_")[0] for x in out]
                 out = [int(x) for x in out]
-        return out, err
+            return out
+        return []
  
     def get_jobname_by_id(self, _id):
         ''' Returns slurm's job_id by its job_name. 
