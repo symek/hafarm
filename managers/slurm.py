@@ -113,7 +113,7 @@ class Slurm(RenderManager):
             if self.parms['email_list']: file.write('#SBATCH --mail-user=%s\n' % ",".join(self.parms['email_list']))
             if self.parms['email_opt']: file.write('#SBATCH --mail-type=%s\n' % self.parms['email_opt'])
             if self.parms['queue']: file.write('#SBATCH -p %s\n' % self.parms['queue'])
-	    if self.parms['group'] and self.parms['group'] != 'allhosts': file.write("#SBATCH  -C %s\n" % self.parms['group'])
+            if self.parms['group'] and self.parms['group'] != 'allhosts': file.write("#SBATCH  -C %s\n" % self.parms['group'])
 
             # We try to use single script for all chuncks, so we need some expressions:
             # TODO: this should work for multi-frame rendering like Nuke, Hscript, Maya.
@@ -141,7 +141,7 @@ class Slurm(RenderManager):
             # Finally render command:
             # FIXME: this isn't generic. The only moment we know how the command should look like 
             # is host application class. 
-            file.write('%s %s %s\n' % (self.parms['command'], command_arg, scene_file))
+            file.write('%s %s %s\n' % (os.path.expandvars(self.parms['command']), command_arg, scene_file))
 
             # Post render script if any:
             file.write("%s\n" % self.parms['post_render_script'])
@@ -196,7 +196,7 @@ class Slurm(RenderManager):
 
         if not command: 
             command = self.sbatch_command
-	print command
+    print command
 
         # TODO: What we should do with output?
         try:
