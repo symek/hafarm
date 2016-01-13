@@ -196,7 +196,7 @@ class Slurm(RenderManager):
 
         if not command: 
             command = self.sbatch_command
-    print command
+        # print command
 
         # TODO: What we should do with output?
         try:
