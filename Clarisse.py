@@ -19,7 +19,7 @@ class ClarisseFarm(hafarm.HaFarm):
         self.parms['req_license']    = 'clarisse_lic=1' 
         self.parms['req_resources']  = ''
         self.parms['job_on_hold'] = False
-        self.parms['queue'] = 'clarisse'
+        self.parms['queue'] = '3d'
         #NOTE We render single frame per task, so double 'start_frame' isn't a bug.
         self.parms['frame_range_arg'] = ["-start_frame %s -end_frame %s", 'start_frame', 'start_frame']
         self.parms['pre_render_script'] = 'clarisse_temp_dir=`mktemp -d --tmpdir=/tmp`; \
