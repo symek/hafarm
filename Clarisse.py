@@ -9,9 +9,9 @@ import ix
 
 
 class ClarisseFarm(hafarm.HaFarm):
-    def __init__(self):
+    def __init__(self, **kwargs):
         # Note: Force non-default version of backend support class.
-        super(ClarisseFarm, self).__init__(backend='Sungrid')
+        super(ClarisseFarm, self).__init__( **kwargs)
         self.parms['command']     = '$CLARISSE_HOME/crender'
         # NOTE: SCENE_FILE has to be first in a row
         self.parms['command_arg'] = ['@SCENE_FILE/>', '-startup_script', '$HAFARM_HOME/scripts/clarisse/123.py']
