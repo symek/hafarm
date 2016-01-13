@@ -148,7 +148,7 @@ class Slurm(RenderManager):
 
             file.write("echo Render ends: `date`\n")
             file.write("echo Render target: %s\n" % self.parms['output_picture'])
-            file.write("echo Command was: %s %s %s\n" % (self.parms['command'], self.parms['command_arg'], scene_file))
+            file.write("echo Command was: '%s %s %s\n's" % (self.parms['command'], self.parms['command_arg'], scene_file))
 
 
         # As a convention we return a dict with function's proper value or None

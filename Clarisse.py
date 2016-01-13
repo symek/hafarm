@@ -16,7 +16,7 @@ class ClarisseFarm(hafarm.HaFarm):
         # NOTE: SCENE_FILE has to be first in a row
         self.parms['command_arg'] = ['@SCENE_FILE/>', '-startup_script', '$HAFARM_HOME/scripts/clarisse/123.py']
         self.parms['output_picture'] = ""
-        self.parms['req_license']    = 'clarisselic=1' 
+        self.parms['req_license']    = 'clarisse_lic=1' 
         self.parms['req_resources']  = ''
         self.parms['job_on_hold'] = False
         self.parms['queue'] = 'clarisse'
