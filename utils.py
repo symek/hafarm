@@ -1,5 +1,4 @@
 import os
-import pwd
 import sys
 import const
 
@@ -12,6 +11,7 @@ def get_email_address_from_uid(uid=None):
     '''Returns email address of currenly logged user. 
     FIXME: Is should depend on ldap module instead if monkey patching...
     '''
+    import pwd
     if not uid:
         uid = os.getuid()
     user = pwd.getpwuid(uid)[4]
@@ -159,7 +159,7 @@ def parse_qacct(output, db=None):
                 frame[var] = value
         db['frames'][int(frame['taskid'])] = frame
 
-    return db
+    return db       
 
 
 def collapse_digits_to_sequence(frames):
