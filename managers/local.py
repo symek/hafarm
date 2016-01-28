@@ -34,7 +34,6 @@ CONNECT_SOCKET = 25000
 AUTHKEY        = b'HAFARM'
 QUEUE_MAXITEMS = 100
 
-
 class Cmp(object):
     """ Custom comparator wrapper, so we can refer to built-in
         compare methods via getattr.
@@ -290,15 +289,9 @@ class LocalServer(object):
             The latter one allows trasfering pickable objects,
             the former one executes LocalServer's commands. () 
     """
-    # _queue   = PriorityQueue(QUEUE_MAXITEMS)
-    _queue   = LocalQueue(QUEUE_MAXITEMS)
-    _manager = Manager()
-    _tasks   = []
-    _status  = _manager.dict()
-    _stdout  = _manager.dict()
-    _stderr  = _manager.dict()
     _logger  = None
-    # 
+    _queue   = LocalQueue(QUEUE_MAXITEMS)
+    _tasks   = []
     _rpc_methods_ = ['job_submit', 'job_get_status', 'get_queue_size', \
     'job_terminate', 'job_exists', 'get_queue_priority']
 
@@ -307,6 +300,12 @@ class LocalServer(object):
             Initalize XMLRPC server wihtin its onw thread.
             Start listening on conneciton pipe for a new jobs.
         """
+        # TODO: This used to be right bellow class LocalServer() which means
+        # that was executed on module import. Check whether it works this way too.
+        _manager = Manager()
+        _status  = _manager.dict()
+        _stdout  = _manager.dict()
+        _stderr  = _manager.dict()
         # Logger:
         if kwargs.get("log", True) and not self._logger:
             self._logger = multiprocessing.log_to_stderr()
@@ -388,7 +387,7 @@ class LocalScheduler(RenderManager):
     _logger   = None
     def __new__(cls, *args, **kwargs):
         if not cls._instance:
-            print "Creating instance of %s" % str(cls)
+            # print "Creating instance of %s" % str(cls)
             cls._instance = super(LocalScheduler, cls).__new__(
                                 cls, *args, **kwargs)
             cls._proxy    = ServerProxy('http://%s:%s' \
@@ -471,7 +470,9 @@ class LocalScheduler(RenderManager):
         return
 
 
-
+if __name__ == "__main__":
+    from multiprocessing import freeze_support
+    freeze_support()
 
 
         
