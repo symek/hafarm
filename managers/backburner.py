@@ -107,7 +107,6 @@ class Backburner(RenderManager):
 
         cc = [os.path.join(CMDJOB_PATH, CMDJOB_BIN)] + cc 
         self.cmdjob_command = cc 
-        print cc
         return cc
 
     def _submit_job(self, command=None):
@@ -122,8 +121,9 @@ class Backburner(RenderManager):
         # TODO: What we should do with output?
         try:
             result = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-            print result.stderr.read()
-            print result.stdout.read()
+            result = (result.stderr.read(), result.stdout.read())
+            print result[0]
+            print result[1]
             return result
         except subprocess.CalledProcessError, why:
             return why
@@ -137,6 +137,8 @@ class Backburner(RenderManager):
         """
         self.parms = dict(parms)
         result = {}
+        # TODO: No job file atm. Probably to be added after to describe tasks
+        # properly...
         # result['_create_job_script']      = self._create_job_script()
         result['_create_submit_command']  = self._create_submit_command()
         result['_submit_job']             = self._submit_job()
