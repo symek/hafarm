@@ -141,14 +141,21 @@ class Slurm(RenderManager):
             # Finally render command:
             # FIXME: this isn't generic. The only moment we know how the command should look like 
             # is host application class. 
-            file.write('%s %s %s\n' % (os.path.expandvars(self.parms['command']), command_arg, scene_file))
+            command = '%s %s %s \n' % (os.path.expandvars(self.parms['command']), command_arg, scene_file)
+            file.write(command)
+
+            # Exit code handling 
+            file.write("exit_code=$?\n")
 
             # Post render script if any:
             file.write("%s\n" % self.parms['post_render_script'])
 
             file.write("echo Render ends: `date`\n")
             file.write("echo Render target: %s\n" % self.parms['output_picture'])
-            file.write("echo Command was: '%s %s %s\n's" % (self.parms['command'], self.parms['command_arg'], scene_file))
+            file.write("echo Command was: '%s'\n" % command)
+
+            #We track exit code from main command:
+            file.write("exit $exit_code")
 
 
         # As a convention we return a dict with function's proper value or None
