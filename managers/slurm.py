@@ -85,7 +85,7 @@ class Slurm(RenderManager):
         with open(script_path, 'w') as file:
 
             # This is standard:
-            file.write('#!/bin/bash -l \n')
+            file.write('#!/bin/bash  \n')
             file.write('#SBATCH --array=%s-%s:%s\n' %  time_parm) 
             if  self.parms['job_on_hold']: file.write('#SBATCH -H \n') 
             file.write('#SBATCH -N 1 \n')
@@ -155,7 +155,7 @@ class Slurm(RenderManager):
             file.write("echo Command was: '%s'\n" % command)
 
             #We track exit code from main command:
-            file.write("exit $exit_code")
+            file.write("exit $exit_code\n")
 
 
         # As a convention we return a dict with function's proper value or None
