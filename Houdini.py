@@ -18,6 +18,7 @@ from hafarm import RootAction
 
 # Jobs multi-tasking are always diabled for these nodes:
 SINGLE_TASK_NODES = ('alembic', 'mdd', 'channel', 'dop', 'filmboxfbx')
+MULTI_TASK_NODES  = ('ifd', 'geometry', 'comp', 'baketexture')
 
 class HbatchFarm(hafarm.HaFarm):
     def __init__(self, node, rop):
@@ -32,7 +33,7 @@ class HbatchFarm(hafarm.HaFarm):
         self.parms['max_running_tasks'] = int(self.node.parm('max_running_tasks').eval())
 
         # This is because we do tiling ourselfs:
-        if self.rop.type().name() == 'ifd':
+        if self.rop.type().name() in ('ifd', "baketexture"):
             self.parms['command_arg'] += ["--ignore_tiles"]
 
             # This will change Rop setting to save ifd to disk:
@@ -43,7 +44,8 @@ class HbatchFarm(hafarm.HaFarm):
 
             # Default Mantra imager (doesn't make sense in hbatch cache though)
             # TODO: Shouln't it be an ifd file instead of the image?
-            self.parms['output_picture'] = str(self.rop.parm("vm_picture").eval())
+            if self.rop.type().name() == 'ifd': # baketexure doesnt have vm_picture
+                self.parms['output_picture'] = str(self.rop.parm("vm_picture").eval())
 
         # 
         self.parms['scene_file']  = str(hou.hipFile.name())
@@ -213,7 +215,9 @@ class MantraFarm(hafarm.HaFarm):
             self.parms['command']        = '$HFS/bin/' +  str(self.rop.parm('soho_pipecmd').eval()) 
             self.parms['start_frame']    = int(self.rop.parm('f1').eval())
             self.parms['end_frame']      = int(self.rop.parm('f2').eval())
-            self.parms['output_picture'] = str(self.rop.parm("vm_picture").eval())        
+            # baketexture doesn't have vm_picture:
+            if rop.type().name() == "ifd":
+                self.parms['output_picture'] = str(self.rop.parm("vm_picture").eval())        
             
         # Setting != 0 idicates we want to do something about it:
         if self.node.parm("slots").eval() != 0 or self.node.parm("cpu_share").eval() != 1.0:
@@ -416,7 +420,7 @@ def build_graph(hafarm_rop, verbose=False):
     '''Builds simple dependency graph from Rops.
     '''
     def is_supported(node):
-        return  node.type().name() in SINGLE_TASK_NODES + ('ifd', 'geometry', 'comp')
+        return  node.type().name() in SINGLE_TASK_NODES + MULTI_TASK_NODES
 
     def add_recursively(parent, actions, rops):
         for rop in parent.rop.inputs():
@@ -551,7 +555,7 @@ def render_pressed(node):
 
     for action in hscripts:
         # This is not mantra node, we are done here:
-        if action.rop.type().name() != "ifd":
+        if action.rop.type().name() not in ("ifd", "baketexture"):
             continue
 
         # Render randomly selected frames provided by the user in HaFarm parameter:

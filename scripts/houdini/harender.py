@@ -64,7 +64,7 @@ def main():
         driver.parm("vm_tile_render").set(0)
 
     # Change ROP to save IFD to disk:
-    if driver.type().name() == 'ifd' and options.generate_ifds:
+    if driver.type().name() in ('ifd', "baketexture") and options.generate_ifds:
         driver.parm("soho_outputmode").set(1)
         scene_path, scene_name = os.path.split(hou.hipFile.name())
         scene_name, ext = os.path.splitext(scene_name)
