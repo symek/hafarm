@@ -26,10 +26,10 @@ hafarm_defaults = {'start_frame': 1,
                    'step_frame' : 1,
                    'queue'      : '3d', # Queue to be used. FIXME: This should be list
                    'group'      : '' ,  # Group of a machines to be used (subset of queue or farm most of the case.) FIXME: This should be list.
-                   'slots'      : 15,   # Consume slots. On SGE these are custom numbers, not necceserly cores.
+                   'slots'      : 0,   # Consume slots. On SGE these are custom numbers, not necceserly cores.
                    'cpu_share'  : 1.0,  # Controls multithreading based on percentage of avaiable resources (cpus).
                    'priority'   : -500, # TODO: Shouldn't it be genereal 0-1 value translated into specific number by manager class?
-                   'req_memory' : 4,    # Minimal free memory on rendernode.
+                   'req_memory' : 0,    # Minimal free memory on rendernode.
                    'job_on_hold': False,#
                    'hold_jid'   : [],   # Job's names or ids which current job is depend on.
                    'hold_jid_ad': [],   # Job's names or ids which current array job is depend on. 

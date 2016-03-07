@@ -28,7 +28,7 @@ class HbatchFarm(hafarm.HaFarm):
         self.node = node
         # command will be either hscript csh script shipped with Houdini 
         # or any custom render script (harender atm.)
-        self.parms['command']     = str(self.node.parm("command").eval())
+        self.parms['command']           = '$HFS/bin/hython'
         # Max tasks render managet will attempt to aquire at once: 
         self.parms['max_running_tasks'] = int(self.node.parm('max_running_tasks').eval())
 
@@ -64,7 +64,11 @@ class HbatchFarm(hafarm.HaFarm):
 
         # Requests resurces and licenses (TODO shouldn't we aquire slot here?)
         self.parms['req_license']   = 'hbatch_lic=1' 
-        self.parms['req_resources'] = 'procslots=%s' % int(self.node.parm('slots').eval())
+        self.parms['req_resources'] = 'procslots=%s' % int(self.node.parm('hbatch_slots').eval())
+
+        # Change only for slots != 0:
+        if self.node.parm('hbatch_slots').eval():
+            self.parms['slots'] = self.node.parm('hbatch_slots').eval()
 
         # Use provided frame list instead of frame range. Hscript needs bellow changes to
         # make generic path to work with list of frames: 
@@ -102,13 +106,17 @@ class HbatchFarm(hafarm.HaFarm):
         self.parms['job_on_hold'] = bool(self.node.parm('job_on_hold').eval())
         self.parms['priority']    = int(self.node.parm('priority').eval())
 
+        # Request RAM per job:
+        if self.node.parm("hbatch_ram").eval():
+            self.parms['req_memory'] = self.node.parm("hbatch_ram").eval()
+
         # Requested delay in evaluation time:
         delay = self.node.parm('delay').eval()
         if delay != 0:
             self.parms['req_start_time'] = utils.compute_delay_time(delay)
 
         # This will overwrite any from above command arguments for harender according to command_arg parm:
-        self.parms['command_arg'] += [str(self.node.parm("command_arg").eval())]
+        self.parms['command_arg'].insert(0, str(self.node.parm("command_arg").eval()))
 
 
     def pre_schedule(self):
@@ -127,10 +135,15 @@ class HbatchFarm(hafarm.HaFarm):
         result  = self.copy_scene_file()
 
         # Command for host application:
-        command = self.parms['command_arg']
+        command = []
 
         # Threads:
-        #command += ['-j %s' % self.parms['slots']]
+        if self.parms['slots']:
+            command += ['-j %s' % self.parms['slots']]
+
+        # Render script:
+        command += self.parms['command_arg']
+
 
         # Add targets:
         if self.parms['target_list']:
@@ -198,7 +211,7 @@ class MantraFarm(hafarm.HaFarm):
             
         # Doesn't make sense for Mantra, but will be expected as usual later on:
         self.parms['frame_range_arg'] = ["%s%s%s", '', '', ''] 
-        self.parms['req_resources']   = 'procslots=%s' % int(self.node.parm('slots').eval())
+        self.parms['req_resources']   = 'procslots=%s' % int(self.node.parm('mantra_slots').eval())
         self.parms['make_proxy']      = bool(self.node.parm("make_proxy").eval())
 
         
@@ -220,8 +233,8 @@ class MantraFarm(hafarm.HaFarm):
                 self.parms['output_picture'] = str(self.rop.parm("vm_picture").eval())        
             
         # Setting != 0 idicates we want to do something about it:
-        if self.node.parm("slots").eval() != 0 or self.node.parm("cpu_share").eval() != 1.0:
-            threads   = self.node.parm("slots").eval()
+        if self.node.parm("mantra_slots").eval() != 0 or self.node.parm("cpu_share").eval() != 1.0:
+            threads   = self.node.parm("mantra_slots").eval()
             cpu_share = self.node.parm('cpu_share').eval()
             # Note: "-j threads" appears in a command only if mantra doesn't take all of them. 
             # TODO: Bollow is a try to make autoscaling based on percentange of avaiable cpus.
@@ -232,6 +245,10 @@ class MantraFarm(hafarm.HaFarm):
                 self.parms['command_arg'] += ['-j', const.MAX_CORES]
             else:
                 self.parms['command_arg'] += ['-j', str(threads)]
+
+        # Request RAM per job:
+        if self.node.parm("mantra_ram").eval():
+            self.parms['req_memory'] = self.node.parm("mantra_ram").eval()
 
         # Adding Python filtering:
         # Crop support:

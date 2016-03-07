@@ -87,10 +87,29 @@ class Slurm(RenderManager):
             # This is standard:
             file.write('#!/bin/bash  \n')
             file.write('#SBATCH --array=%s-%s:%s\n' %  time_parm) 
-            if  self.parms['job_on_hold']: file.write('#SBATCH -H \n') 
+
+            # Hold:
+            if  self.parms['job_on_hold']: 
+                file.write('#SBATCH -H \n') 
+
+            #Nice:
+            # Slurm's nice is oposite to priority and ranges -10.000<-->10.000:
+            file.write("#SBATCH --nice=%i\n" % min(max((self.parms['priority'] * -10), -10000), 10000))
+
+            # Multithreading:
             file.write('#SBATCH -N 1 \n')
-            file.write('#SBATCH --exclusive\n')
+            # Slots == 0: all cores, reserve full node:
+            if self.parms['slots'] == 0:
+                file.write('#SBATCH --exclusive\n')
+            else:
+                file.write('#SBATCH -n %s\n' % self.parms['slots'])
             # file.write('#SBATCH -c %s \n' % self.parms['slots'])
+
+            # RAM (MB in Slurm, GB in hafarm)
+            if self.parms['req_memory']:
+                ram = int(self.parms['req_memory']*1024)
+                file.write("#SBATCH --mem=%i\n" % ram)
+
             if self.parms['req_license']: 
                 req_license = self.parms['req_license'].split('=')
                 req_license = ":".join(req_license)
