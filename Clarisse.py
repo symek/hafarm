@@ -20,6 +20,7 @@ class ClarisseFarm(hafarm.HaFarm):
         self.parms['req_resources']  = ''
         self.parms['job_on_hold'] = False
         self.parms['queue'] = '3d'
+        self.parms['group'] = 'old_intel'
         #NOTE We render single frame per task, so double 'start_frame' isn't a bug.
         self.parms['frame_range_arg'] = ["-start_frame %s -end_frame %s", 'start_frame', 'start_frame']
         self.parms['pre_render_script'] = 'clarisse_temp_dir=`mktemp -d --tmpdir=/tmp`; \
@@ -118,7 +119,7 @@ def hafarm_run():
     # TODO: This isn't used atm
     label2  = ix.api.GuiLabel(window, 5, 10, 320, 70, "Host groups:")
     groups = ix.api.GuiListView(window, 5, 60, 100, 60)
-    for group in ('allhosts', 'renders', 'workstations'):
+    for group in ('old_intel', 'new_intel', 'grafika', 'render'):
         groups.add_item(str(group))
 
     # The list of selected images
