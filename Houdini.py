@@ -113,7 +113,7 @@ class HbatchFarm(hafarm.HaFarm):
         # Requested delay in evaluation time:
         delay = self.node.parm('delay').eval()
         if delay != 0:
-            self.parms['req_start_time'] = utils.compute_delay_time(delay)
+            self.parms['req_start_time'] = delay*3600
 
         # This will overwrite any from above command arguments for harender according to command_arg parm:
         self.parms['command_arg'].insert(0, str(self.node.parm("command_arg").eval()))
@@ -207,7 +207,7 @@ class MantraFarm(hafarm.HaFarm):
         # Requested delay in evaluation time:
         delay = self.node.parm('delay').eval()
         if delay != 0:
-            self.parms['req_start_time'] = utils.compute_delay_time(delay)
+            self.parms['req_start_time'] = delay*3600
             
         # Doesn't make sense for Mantra, but will be expected as usual later on:
         self.parms['frame_range_arg'] = ["%s%s%s", '', '', ''] 

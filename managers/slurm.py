@@ -94,7 +94,7 @@ class Slurm(RenderManager):
 
             #Nice:
             # Slurm's nice is oposite to priority and ranges -10.000<-->10.000:
-            file.write("#SBATCH --nice=%i\n" % min(max((self.parms['priority'] * -10), -10000), 10000))
+            file.write("#SBATCH --nice=%i\n" % min(max((self.parms['priority'] * -1), -10000), 10000))
 
             # Multithreading:
             file.write('#SBATCH -N 1 \n')
@@ -125,9 +125,9 @@ class Slurm(RenderManager):
                 deps = [self.get_jobid_by_name(name) for name in deps]
                 # Flattern array of arrays:
                 deps = [str(item) for sublist in deps for item in sublist]
-                file.write('#SBATCH -d %s \n' % ','.join(deps)) 
+                file.write('#SBATCH -d aftercorr:%s \n' % ','.join(deps)) 
 
-            if self.parms['req_start_time'] != 0.0 : file.write('#SBATCH --begin=now+%s  \n' % self.parms['req_start_time'])
+            if self.parms['req_start_time'] != 0.0 : file.write('#SBATCH --begin=now+%i  \n' % self.parms['req_start_time'])
             if self.parms['rerun_on_error']: file.write('#SBATCH --requeue \n')
             if self.parms['email_list']: file.write('#SBATCH --mail-user=%s\n' % ",".join(self.parms['email_list']))
             if self.parms['email_opt']: file.write('#SBATCH --mail-type=%s\n' % self.parms['email_opt'])
