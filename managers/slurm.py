@@ -255,7 +255,7 @@ class Slurm(RenderManager):
         """Get list of defined groups from manager. 
         NOTE: API candidate.."""
         #TODO: get this from sge with qconf -shgrpl
-        return ('allhosts', 'grafiki', 'renders')
+        return ('allhosts', 'grafika', 'render', "old_intel", "new_intel")
 
     def get_host_list(self):
         """Get list of defined groups from manager. 
