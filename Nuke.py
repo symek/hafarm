@@ -48,7 +48,7 @@ class NukeFarm(hafarm.HaFarm):
         command = self.parms['command_arg']
 
         # Threads:
-        command += ['-m %s ' % self.parms['slots']]
+        # command += ['-m %s ' % self.parms['slots']]
 
         # Add targets:
         if self.parms['target_list']:
