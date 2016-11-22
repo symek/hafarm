@@ -30,6 +30,7 @@ hafarm_defaults = {'start_frame': 1,
                    'cpu_share'  : 1.0,  # Controls multithreading based on percentage of avaiable resources (cpus).
                    'priority'   : -500, # TODO: Shouldn't it be genereal 0-1 value translated into specific number by manager class?
                    'req_memory' : 0,    # Minimal free memory on rendernode.
+                   'req_tmpdir' : 16,    # Minimal requested /tmp size in GB
                    'job_on_hold': False,#
                    'hold_jid'   : [],   # Job's names or ids which current job is depend on.
                    'hold_jid_ad': [],   # Job's names or ids which current array job is depend on. 

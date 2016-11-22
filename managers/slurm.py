@@ -110,6 +110,11 @@ class Slurm(RenderManager):
                 ram = int(self.parms['req_memory']*1024)
                 file.write("#SBATCH --mem=%i\n" % ram)
 
+            # /tmp (MB in Slurm, GB in hafarm)
+            if self.parms['req_tmpdir']:
+                tmp  = int(self.parms['req_tmpdir']*1024) # This is in MB
+                file.write("#SBATCH --tmp=%i\n" % tmp)
+
             if self.parms['req_license']: 
                 req_license = self.parms['req_license'].split('=')
                 req_license = ":".join(req_license)
