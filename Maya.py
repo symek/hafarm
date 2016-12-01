@@ -41,4 +41,3 @@ class MayaFarm(hafarm.HaFarm):
         new_scene_path = os.path.join(script_path, job_name)
         shutil.copy2(scene_path, new_scene_path)
         return new_scene_path
-
