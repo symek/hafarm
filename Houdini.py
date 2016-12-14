@@ -18,7 +18,7 @@ from hafarm import RootAction
 
 # Jobs multi-tasking are always diabled for these nodes:
 SINGLE_TASK_NODES = ('alembic', 'mdd', 'channel', 'dop', 'filmboxfbx')
-MULTI_TASK_NODES  = ('ifd', 'geometry', 'comp', 'baketexture')
+MULTI_TASK_NODES  = ('ifd', 'geometry', 'comp', 'baketexture', 'fetch')
 
 class HbatchFarm(hafarm.HaFarm):
     def __init__(self, node, rop):
@@ -460,6 +460,10 @@ def build_graph(hafarm_rop, verbose=False):
                 if rop.type().name() == "HaFarm":
                     farm.node  = rop
             else:
+                # We may import node from different network:
+                if rop.type().name() == 'fetch':
+                    rop = hou.node(rop.parm("source").eval())
+
                 farm = HbatchFarm(parent.node, rop)
 
             actions.append(farm)
