@@ -18,7 +18,7 @@ from hafarm import RootAction
 
 # Jobs multi-tasking are always diabled for these nodes:
 SINGLE_TASK_NODES = ('alembic', 'mdd', 'channel', 'dop', 'filmboxfbx')
-MULTI_TASK_NODES  = ('ifd', 'geometry', 'comp', 'baketexture', 'fetch')
+MULTI_TASK_NODES  = ('ifd', 'geometry', 'comp', 'baketexture', 'baketexture::3.0', 'fetch')
 
 class HbatchFarm(hafarm.HaFarm):
     def __init__(self, node, rop):
