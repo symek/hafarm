@@ -114,7 +114,33 @@ class BatchFarm(HaFarm):
             self.parms['end_frame']   = end
 
         return True
-       
+
+    def to_exr2(self, filename, start=None, end=None):
+        ''' Converts sequence to exr2 with custom script and oiiotool.
+            Note: oiio needs to be in a path (FIXME).
+        '''
+        
+        details = utils.padding(filename)
+
+        path, file = os.path.split(filename)
+        path       = os.path.join(path, "exr2")
+
+        if not os.path.isdir(path):
+            try:
+                os.mkdir(path)
+            except OSError, why:
+                return why
+
+        self.parms['scene_file'] =  details[0] + const.TASK_ID_PADDED + details[3]
+        self.parms['command']    = '/STUDIO/scripts/img2exr2'
+	self.parms['slots']      = 4
+	self.parms['queue']      = 'nuke'
+        self.parms['frame_padding_length'] = int(details[2])
+        if start and end:
+            self.parms['start_frame'] = start
+            self.parms['end_frame']   = end
+
+        return True       
 
     def merge_reports(self, filename, ifd_path=None, send_email=True, mad_threshold=5.0, resend_frames=False):
         ''' Merges previously generated debug reports per frame, and do various things
