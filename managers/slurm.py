@@ -72,7 +72,7 @@ class Slurm(RenderManager):
 
         # There are cases where TASK_ID should be padded. 
         # TODO: I don't know how to specify padding length thought atm
-        scene_file  = scene_file.replace(const.TASK_ID_PADDED,  '$(python -c "print \'$SLURM_ARRAY_TASK_ID\'.zfill(%s)")' \
+        scene_file  = scene_file.replace(const.TASK_ID_PADDED,  '$(python -c "frame=str( ${SLURM_ARRAY_TASK_ID} );  print frame.zfill(%s)")' \
             % self.parms['frame_padding_length'])
 
         # TODO: Look for general way of doing things like this...
