@@ -33,7 +33,7 @@ class HbatchFarm(hafarm.HaFarm):
         self.parms['max_running_tasks'] = int(self.node.parm('max_running_tasks').eval())
 
         # This is because we do tiling ourselfs:
-        if self.rop.type().name() in ('ifd', "baketexture"):
+        if self.rop.type().name() in ('ifd', "baketexture", 'baketexture::3.0'):
             self.parms['command_arg'] += ["--ignore_tiles"]
 
             # This will change Rop setting to save ifd to disk:
@@ -44,8 +44,14 @@ class HbatchFarm(hafarm.HaFarm):
 
             # Default Mantra imager (doesn't make sense in hbatch cache though)
             # TODO: Shouln't it be an ifd file instead of the image?
-            if self.rop.type().name() == 'ifd': # baketexure doesnt have vm_picture
-                self.parms['output_picture'] = str(self.rop.parm("vm_picture").eval())
+            # if self.rop.type().name() == 'ifd': # baketexure doesnt have vm_picture
+            # ... but it does have vm_uvoutput*
+            vm_picture = ""
+            if self.rop.parm('vm_picture'):
+                vm_picture = self.rop.parm('vm_picture').eval()
+            else:
+                vm_picture = safe_eval_parm(self.rop, 'vm_uvoutputpicture1')
+            self.parms['output_picture'] = str(vm_picture)
 
         # 
         self.parms['scene_file']  = str(hou.hipFile.name())
@@ -228,9 +234,13 @@ class MantraFarm(hafarm.HaFarm):
             self.parms['command']        = '$HFS/bin/' +  str(self.rop.parm('soho_pipecmd').eval()) 
             self.parms['start_frame']    = int(self.rop.parm('f1').eval())
             self.parms['end_frame']      = int(self.rop.parm('f2').eval())
-            # baketexture doesn't have vm_picture:
-            if rop.type().name() == "ifd":
-                self.parms['output_picture'] = str(self.rop.parm("vm_picture").eval())        
+
+            vm_picture = ""
+            if self.rop.parm('vm_picture'):
+                vm_picture = self.rop.parm('vm_picture').eval()
+            else:
+                vm_picture = safe_eval_parm(self.rop, 'vm_uvoutputpicture1')
+            self.parms['output_picture'] = str(vm_picture)     
             
         # Setting != 0 idicates we want to do something about it:
         if self.node.parm("mantra_slots").eval() != 0 or self.node.parm("cpu_share").eval() != 1.0:
@@ -533,6 +543,14 @@ def build_debug_graph(parent, subnet):
     for node in subnet.children():
         node.moveToGoodPosition()
 
+def safe_eval_parm(node, parm_name, value=None):
+    """Eval paramater conditionally."""
+    if node.parm(parm_name):
+        value = node.parm(parm_name).eval()
+        return value
+    else:
+        return None
+
 
 def render_pressed(node):
     '''Direct callback from Render button on Hafarm ROP.'''
@@ -576,7 +594,7 @@ def render_pressed(node):
 
     for action in hscripts:
         # This is not mantra node, we are done here:
-        if action.rop.type().name() not in ("ifd", "baketexture"):
+        if action.rop.type().name() not in ("ifd", "baketexture", "baketexture::3.0"):
             continue
 
         # Render randomly selected frames provided by the user in HaFarm parameter:
@@ -587,7 +605,7 @@ def render_pressed(node):
         else:
             # TODO: Move tiling inside MantraFarm class...
             # Custom tiling:
-            if action.rop.parm('vm_tile_render').eval():
+            if safe_eval_parm(action.rop, 'vm_tile_render'):
                 mantra_frames, merger = mantra_render_with_tiles(action)
             else:
                 # Proceed normally (no tiling required):
