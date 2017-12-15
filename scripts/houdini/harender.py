@@ -49,7 +49,7 @@ def vectorize_export(pattern, driver):
     variable_names = []
     VECTOR_BIND_VOP_TYPE = 7
 
-    if driver.type().name() in ('ifd', "baketexture"):
+    if driver.type().name() in ('ifd', "baketexture", "baketexture::3.0"):
         exports += [parm for parm in driver.parms()\
          if fnmatch(parm.evalAsString(), pattern)]
 
