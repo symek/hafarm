@@ -26,6 +26,9 @@ def parseOptions():
     parser.add_option("", "--vectorize_export", dest='vectorize_export', action='store',  type="string", default="msk_*", help="Makes sure all deep rasters matching given pattern will be vector type.")
     parser.add_option("", "--save_scene", dest='save_scene', action='store',  type="string", default="", help="Saves modified version of a scene mostly for debugging purposes.")
     parser.add_option("", "--idle", dest='idle', action='store_true', default=False, help="Run the script, but don't render anything.")
+    parser.add_option("", "--scratch", dest='scratch', action='store', default="/SCRATCH/temp", help="Default location for storing temp render data per job.")
+    
+    (opts, args) = parser.parse_args(sys.argv[1:])
     (opts, args) = parser.parse_args(sys.argv[1:])
     return opts, args
 
@@ -88,6 +91,26 @@ def vectorize_export(pattern, driver):
             node.parm("parmtype").set(VECTOR_BIND_VOP_TYPE)
             node.parmTuple("vectordef").set((1,1,1))
 
+def create_scratch_dir(scratch_parent, job_path):
+    """ Create scratch dir per job.
+        TODO: This shouldn't be probably here. 
+        Better to move it to the app sending job.
+    """
+    import time
+    scratch  = os.path.join(scratch_parent, job_path)
+    try:
+        if not os.path.isdir(scratch):
+            os.mkdir(scratch)
+    except:
+        # This is highly concurrent, lets wait a little
+        time.sleep(2)
+        if not os.path.isdir(scratch):
+            print "ERROR: Can't create scratch %s for a job: %s" % (scratch, hip_name)
+            # now this is wrong...
+            return False
+        else:
+            pass
+    return scratch
 
 def main():
     """Replacement for Houdini's own hrender script. Basic functions for rendering specified rop. 
@@ -124,6 +147,27 @@ def main():
     # Ignoring tiling:
     if options.ignore_tiles and driver.parm("vm_tile_render"):
         driver.parm("vm_tile_render").set(0)
+
+    # Setting network starage, this will need more work soon 
+    # FIXME: remove me
+    job_current = os.getenv("JOB_CURRENT", None)
+    job_group   = os.getenv("JOB_ASSET_TYPE", None)
+    job_name    = os.getenv("JOB_ASSET_NAME", None)
+    if not job_current or not job_group or not job_name:
+        print "ERROR: Can't render on farm without setting on job."
+        sys.exit()
+    hip_path, hip_file = os.path.split(scene_file)
+    job_path = "_".join((job_current, job_group, job_name, hip_file))
+    tmp_shared_storage = create_scratch_dir(options.scratch, job_path)
+    if not tmp_shared_storage:
+        print "Warning!: Render without scratch. Something is wrong..."
+        tmp_shared_storage = options.ifd_path
+
+    print "Setting up scratch storage into: %s" % tmp_shared_storage
+    driver.parm("vm_tmpsharedstorage").set(tmp_shared_storage)
+
+    # We also disable temporarly checkpoints (FIXME):
+    driver.parm("vm_writecheckpoint").set(0)
 
     # Change ROP to save IFD to disk:
     if driver.type().name() in ('ifd', "baketexture", 'baketexture::3.0') and options.generate_ifds:
