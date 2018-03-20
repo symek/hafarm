@@ -164,10 +164,12 @@ def main():
         tmp_shared_storage = options.ifd_path
 
     print "Setting up scratch storage into: %s" % tmp_shared_storage
-    driver.parm("vm_tmpsharedstorage").set(tmp_shared_storage)
+    if driver.parm("vm_tmpsharedstorage"):
+        driver.parm("vm_tmpsharedstorage").set(tmp_shared_storage)
 
     # We also disable temporarly checkpoints (FIXME):
-    driver.parm("vm_writecheckpoint").set(0)
+    if driver.parm("vm_writecheckpoint"):
+        driver.parm("vm_writecheckpoint").set(0)
 
     # Change ROP to save IFD to disk:
     if driver.type().name() in ('ifd', "baketexture", 'baketexture::3.0') and options.generate_ifds:
