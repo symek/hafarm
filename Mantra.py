@@ -135,7 +135,7 @@ class MantraFarm(hafarm.HaFarm):
         return []
 
 
-def mantra_render_frame_list(action, frames):
+def render_frame_list(action, frames):
     """Renders individual frames by sending separately to manager
     This basically means HaFarm doesn't support any batching of random set of frames
     so we manage them individually. Unlike hscript exporter (HBachFarm), which does recognize
@@ -154,7 +154,7 @@ def mantra_render_frame_list(action, frames):
     return mantra_frames
 
 
-def mantra_render_with_tiles(action):
+def render_with_tiles(action):
     '''Creates a series of Mantra jobs using the same ifds stream with different crop setting 
     and overwritten filename. Secondly generates merge job with general BatchFarm class for 
     joining tiles.'''
@@ -192,7 +192,7 @@ def mantra_render_with_tiles(action):
     return mantra_tiles, merger
 
 
-def mantra_render_from_ifd(node, frames, job_name=None):
+def render_from_ifd(node, frames, job_name=None):
     """Separated path for renderig directly from provided ifd files."""
     import glob
     mantra_frames = []

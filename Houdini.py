@@ -15,10 +15,9 @@ from hafarm import const
 from Batch import BatchFarm
 from hafarm import NullAction
 from hafarm import RootAction
-
 from .Hbatch import HbatchFarm
-from .Mantra import MantraFarm
-
+import Mantra
+import Redshift
 
 
 def post_render_actions(node, actions, queue='3d'):
@@ -130,6 +129,7 @@ def render_recursively(root, dry_run=False, ignore_types=[]):
                     names = [x.parms['job_name'] for x in child.get_renderable_inputs()]
                     print "Dry submitting: %s, settings: %s, children: \n\t%s" % (child.parms['job_name'], child.node.name(), ", ".join(names))
                 else:
+                    print "Submitting: %s, settings: %s, children: \n\t%s" % (child.parms['job_name'], child.node.name(), ", ".join(names))
                     child.render()
                 submitted += [child]
 
@@ -190,13 +190,21 @@ def render_pressed(node):
         frames = []
         # support selective frames as well:
         if  node.parm("use_frame_list").eval():
-            frames = node.parm("frame_list").eval()
-            frames = utils.parse_frame_list(frames)
+            ifds   = node.parm("frame_list").eval()
+            frames = utils.parse_frame_list(ifds)
 
         # TODO Make validiation of submiting jobs...
-        mantra_frames = mantra_render_from_ifd(node, frames)
-        root.add_inputs(mantra_frames)
-        posts = post_render_actions(node, mantra_frames)
+        if ifds.endswith(".ifd"):
+            RenderModule = hafarm.Mantra
+        elif ifds.endswith(".rs"):
+            RenderModule = hafarm.Redshift
+        else:
+            print "Wrong IFD/RS file extension?"
+            return
+
+        tasks = RenderModule.render_from_ifd(node, frames)
+        root.add_inputs(tasks)
+        posts = post_render_actions(node, tasks)
         root.add_inputs(posts)
         # End of story:
         render_recursively(root, debug_dependency_graph)
@@ -211,45 +219,55 @@ def render_pressed(node):
 
     for action in hscripts:
         # This is not mantra node, we are done here:
-        if action.rop.type().name() not in ("ifd", "baketexture", "baketexture::3.0"):
+        if action.rop.type().name() not in ("ifd", "baketexture", "baketexture::3.0", "Redshift_ROP"):
             continue
+
+        if action.rop.type().name() == "ifd":
+            postfix      = "_mantra"
+            RenderModule = Mantra
+            FrameClass   = Mantra.MantraFarm
+        elif action.rop.type().name() == "Redshift_ROP":
+            postfix      = "_redshift"
+            RenderModule = Redshift
+            FrameClass   = Redshift.RSRenderFarm
+
 
         # Render randomly selected frames provided by the user in HaFarm parameter:
         if  action.node.parm("use_frame_list").eval():
-            frames         = action.node.parm("frame_list").eval()
-            frames         = utils.parse_frame_list(frames)
-            mantra_frames  = mantra_render_frame_list(action, frames)
+            frames      = action.node.parm("frame_list").eval()
+            frames      = utils.parse_frame_list(frames)
+            task_frames = RenderModule.render_frame_list(action, frames)
         else:
             # TODO: Move tiling inside MantraFarm class...
             # Custom tiling:
             if safe_eval_parm(action.rop, 'vm_tile_render'):
-                mantra_frames, merger = mantra_render_with_tiles(action)
+                task_frames, merger = RenderModule.render_with_tiles(action)
             else:
                 # Proceed normally (no tiling required):
-                mantra_frames = [MantraFarm(action.node, action.rop, job_name = action.parms['job_name'] + "_mantra")]
+                task_frames = [FrameClass(action.node, action.rop, job_name = action.parms['job_name'] + "_mantra")]
                 # Build parent dependency:
-                action.insert_outputs(mantra_frames)
+                action.insert_outputs(task_frames)
 
         # Posts actions
-        posts = post_render_actions(action.node, mantra_frames)
+        posts = post_render_actions(action.node, task_frames)
         root.add_inputs(posts)
     
 
 
-    # Debug previous renders (ignore all rops but debugers) mode:
-    if node.parm('debug_previous_render'):
-        if node.parm('debug_previous_render').eval():
-            render_recursively(root, debug_dependency_graph, ignore_types=[MantraFarm, HbatchFarm])
-            return
+    # # Debug previous renders (ignore all rops but debugers) mode:
+    # if node.parm('debug_previous_render'):
+    #     if node.parm('debug_previous_render').eval():
+    #         render_recursively(root, debug_dependency_graph, ignore_types=[MantraFarm, HbatchFarm])
+    #         return
  
     
     # Again end of story:
     print "Submitting nodes in top-to-buttom from dependency graph:"
     render_recursively(root, debug_dependency_graph)
 
-    if debug_dependency_graph:
-        subnet = node.parent().createNode("subnet")
-        build_debug_graph(root, subnet)
+    # if debug_dependency_graph:
+    #     subnet = node.parent().createNode("subnet")
+    #     build_debug_graph(root, subnet)
 
     # Side effect of singelton root. It's not destroyed after run, so we need to clean it here.
     root.clear()

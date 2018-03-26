@@ -22,7 +22,7 @@ HAFARM_DEFAULT_BACKEND = 'Slurm'
 # Not very elegant to keep Houdini's specific settings here... FIXME
 # Jobs multi-tasking are always diabled for these nodes:
 HOUDINI_SINGLE_TASK_NODES = ('alembic', 'mdd', 'channel', 'dop', 'filmboxfbx')
-HOUDINI_MULTI_TASK_NODES  = ('ifd', 'geometry', 'comp', 'baketexture', 'baketexture::3.0', 'fetch')
+HOUDINI_MULTI_TASK_NODES  = ('ifd', 'geometry', 'comp', 'baketexture', 'baketexture::3.0', 'fetch', 'ROP_Redshift')
 
 
 
