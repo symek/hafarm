@@ -70,6 +70,13 @@ def build_graph(hafarm_rop, verbose=False):
             # Houdini sometimes keeps None inputs...
             if not rop:
                 continue
+
+            BatchClass = HbatchFarm
+            postfix    = ""
+            if rop.type().name() == "Redshift_ROP":
+                postfix      = "_redshift"
+                RenderModule = Redshift
+                BatchClass   = Redshift.RSBatchFarm
             # This rop was already hafarm'ed, so we just connect its hafarm class 
             # to our current node (parent)
             if rop.name() in rops.keys():
@@ -79,7 +86,7 @@ def build_graph(hafarm_rop, verbose=False):
                 if verbose:
                     print "Creating NullAction from %s" % rop.name()
                 farm      = NullAction()
-                farm.parms = {'job_name': rop.name()}
+                farm.parms = {'job_name': rop.name() + postfix}
                 farm.rop  = rop
                 farm.node = parent.node
                 farm.array_interdependencies  = False
@@ -90,7 +97,7 @@ def build_graph(hafarm_rop, verbose=False):
                 if rop.type().name() == 'fetch':
                     rop = hou.node(rop.parm("source").eval())
 
-                farm = HbatchFarm(parent.node, rop)
+                farm = BatchClass(parent.node, rop)
 
             actions.append(farm)
             parent.add_input(farm)
@@ -125,8 +132,8 @@ def render_recursively(root, dry_run=False, ignore_types=[]):
             if True in [isinstance(child, t) for t in ignore_types]:
                 continue
             if child not in submitted:
+                names = [x.parms['job_name'] for x in child.get_renderable_inputs()]
                 if dry_run:
-                    names = [x.parms['job_name'] for x in child.get_renderable_inputs()]
                     print "Dry submitting: %s, settings: %s, children: \n\t%s" % (child.parms['job_name'], child.node.name(), ", ".join(names))
                 else:
                     print "Submitting: %s, settings: %s, children: \n\t%s" % (child.parms['job_name'], child.node.name(), ", ".join(names))
@@ -244,7 +251,7 @@ def render_pressed(node):
                 task_frames, merger = RenderModule.render_with_tiles(action)
             else:
                 # Proceed normally (no tiling required):
-                task_frames = [FrameClass(action.node, action.rop, job_name = action.parms['job_name'] + "_mantra")]
+                task_frames = [FrameClass(action.node, action.rop, job_name = action.parms['job_name'] + postfix)]
                 # Build parent dependency:
                 action.insert_outputs(task_frames)
 

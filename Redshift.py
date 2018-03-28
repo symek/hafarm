@@ -8,7 +8,7 @@ from hafarm import const
 
 class RSBatchFarm(hafarm.HaFarm):
     def __init__(self, node, rop):
-        super(HbatchFarm, self).__init__()
+        super(RSBatchFarm, self).__init__()
         # Keep reference to assigned rop
         self.rop = rop
         self.node = node
@@ -50,7 +50,7 @@ class RSBatchFarm(hafarm.HaFarm):
                 self.parms['step_frame']  = int(self.node.parm('step_frame').eval())
 
         # Requests resources and licenses (TODO shouldn't we aquire slot here?)
-        self.parms['req_license']   = 'redshift_lic=1' 
+        self.parms['req_license']   = 'hbatch_lic=1,redshift_lic=1' 
         self.parms['req_resources'] = 'procslots=%s' % int(self.node.parm('hbatch_slots').eval())
 
         # Change only for slots != 0:
@@ -117,6 +117,7 @@ class RSBatchFarm(hafarm.HaFarm):
             like renderer command and arguments used to render on farm.
         """
 
+        self.parms['pre_render_script'] = "export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$HFS/dsolib"
 
         #TODO: copy_scene_file should be host specific.:
         result  = self.copy_scene_file()
@@ -246,6 +247,7 @@ class RSRenderFarm(hafarm.HaFarm):
             Main purpose is to prepare anything specific that HaFarm might not know about, 
             like renderer command and arguments used to render on farm.
         """
+        self.parms['pre_render_script'] = "export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$HFS/dsolib"
 
         # In this case, scene_file is IFD for mantra: 
         # TODO: Cleanup command creation process: we should create full command here

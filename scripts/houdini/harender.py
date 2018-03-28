@@ -180,12 +180,12 @@ def main():
         driver.parm('soho_diskfile').set(ifd_name)
 
     #Redshift pass:
-    if driver.type().name() == 'ROP_Redshift' and options.generate_ifds:
+    if driver.type().name() == 'Redshift_ROP' and options.generate_ifds:
         driver.parm("RS_archive_enable").set(1)
         scene_path, scene_name = os.path.split(hou.hipFile.name())
         scene_name, ext = os.path.splitext(scene_name)
         # (should we use scratch or ifd_path for rs?)
-        rs_name = os.path.join(tmp_shared_storage, scene_name + ".$F.rs")
+        rs_name = os.path.join(options.ifd_path, scene_name + ".$F.rs")
         driver.parm('RS_archive_file').set(rs_name)
 
     # vectorize exports:

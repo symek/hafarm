@@ -22,7 +22,7 @@ HAFARM_DEFAULT_BACKEND = 'Slurm'
 # Not very elegant to keep Houdini's specific settings here... FIXME
 # Jobs multi-tasking are always diabled for these nodes:
 HOUDINI_SINGLE_TASK_NODES = ('alembic', 'mdd', 'channel', 'dop', 'filmboxfbx')
-HOUDINI_MULTI_TASK_NODES  = ('ifd', 'geometry', 'comp', 'baketexture', 'baketexture::3.0', 'fetch', 'ROP_Redshift')
+HOUDINI_MULTI_TASK_NODES  = ('ifd', 'geometry', 'comp', 'baketexture', 'baketexture::3.0', 'fetch', 'Redshift_ROP')
 
 
 
@@ -64,7 +64,7 @@ hafarm_defaults = {'start_frame': 1,
                    'submission_time': 0.0,  # As a name implies. Not sure if this is essential to record it ourselfs, but still.
                    'req_start_time': 0.0,   # As a name implies. Time a job will unhold and scheduled according to free resources. 
                    'req_resources' : "",  # Request additional resources.
-                   'req_license'   : "",  # Request the license in format: license=number (mayalic=1)
+                   'req_license'   : "",  # Request the license in format: license=number (mayalic=1) TODO: Change to a list of dict.
                    'output_picture': "",  # This file is referential for rendering output (for debugging etc)
                    'frame_range_arg':["%s%s%s", '', '', ''],  # It should be ["-flag %s -flag %s", parm_key, parm_key], to produce:
                                               # '-s %s -e' % (self.parms['start_frame'], self.parms['end_frame']) for example (Maya)
