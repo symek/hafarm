@@ -82,7 +82,7 @@ class RSBatchFarm(hafarm.HaFarm):
         self.parms['email_opt']   = str(self.node.parm('email_opt').eval())
 
         # Queue, groups, frame ranges
-        self.parms['queue']       = str(self.node.parm('queue').eval())
+        self.parms['queue']       = 'cuda' #FIXME: str(self.node.parm('queue').eval())
         self.parms['group']       = str(self.node.parm('group').eval())
         self.parms['start_frame'] = int(self.rop.parm('f1').eval())
         self.parms['end_frame']   = int(self.rop.parm('f2').eval())
